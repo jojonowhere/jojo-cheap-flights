@@ -52,6 +52,52 @@ price-insights block anywhere in `ds:1` — `parse_price_insights()` correctly
 returns `None` in that case, and the UI must show "資料不足" rather than
 inventing a discount percentage.
 
+## What "typical" actually means (researched 2026-08-26)
+
+Google doesn't publish the algorithm — this section separates what's directly
+verifiable from what's just travel-blog speculation, so future work doesn't
+accidentally treat marketing copy as fact.
+
+**Verified by our own data + corroborated independently:**
+- `block[10][0]` (the price-history array) covers roughly the trailing 60
+  days, not a year. Independent reporting (FlyerTalk's writeup of the price-
+  history graph feature) describes the same ~60-day window and the same
+  green/yellow/red "typical band" framing Google's UI uses. This means the
+  chart/PR-value math in this skill is comparing the current fare against
+  **recent quoted-price history for this specific route (and roughly this
+  time of year, since it's the same search), not an explicit multi-year
+  seasonal average.**
+- Google's own support page (support.google.com/travel/answer/7664728)
+  describes the low/high price tips as based on "an analysis of past prices
+  of **similar trips**" — deliberately vague, but it does confirm the
+  comparison set is trips like this one (same-ish route/season), not a flat
+  global average across all routes.
+
+**Plausible but unverifiable (don't repeat as confirmed fact):**
+- Various blog posts (mostly SEO content farms, no cited primary source —
+  treat mightytravels.com-style "50 ML models" / "10 billion data points" /
+  "80% accuracy" claims as unsourced marketing copy, not something to quote
+  to users) describe the system as weighing seasonality, day-of-week,
+  events, search-volume spikes, and time-to-departure. This is directionally
+  plausible (it's consistent with how Farecast/ITA-era fare prediction
+  patents like US7974863B2 and US8694346B2 describe similar systems working)
+  but none of it is confirmed by Google directly, and there's no public
+  documentation of *how much* each factor is weighted.
+
+**Answering the user's specific question** (does "typical" account for
+year-over-year, season, peak/off-peak, demand vs supply vs booking-curve
+timing?): based on the above, the honest answer is **partially and
+opaquely** — the ~60-day rolling window means it's NOT doing an explicit
+year-over-year comparison (there's no multi-year data in what we can see),
+but because the window is recentered on whatever dates you search, it
+implicitly captures *some* seasonality (a July search sees July-ish recent
+quotes). Demand/supply/booking-curve weighting is plausible given the
+Farecast-lineage patents but not independently verifiable from outside
+Google. **Practical implication for this skill:** the PR-value/bell-curve
+math here should be described to users as "compared to recent quoted prices
+for this route" — not as "compared to this time last year" or "compared to
+peak-season averages," since we can't confirm either of those claims.
+
 ## Flight offer items
 
 Each bookable itinerary is one node somewhere in `ds:1`'s tree, individually
