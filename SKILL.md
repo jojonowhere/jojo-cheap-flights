@@ -45,17 +45,33 @@ is fixed vs. flexible, with price/discount as the thing you're optimizing":
 5. Report results honestly, including gaps — see "Sparse routes" below.
 6. Edit `RESULTS_HISTORY` in `flight_query_console.html` (push a new entry, don't overwrite — see "Artifact rules" below) and republish via the Artifact tool.
 
-## Setup (Bright Data)
+## Setup — none needed to start
 
-The user has a Bright Data account with a **SERP API** zone (not Web Unlocker,
-not Browser API, not the pre-built Scrapers — those don't return the page
-structure this needs). If `BRIGHTDATA_API_KEY` / `BRIGHTDATA_SERP_ZONE` aren't
-set in the environment, they may be in `~/.bash_profile` (persisted there
-earlier) — check before asking the user to dig up the key again. 5,000
-requests/month free tier; a single multi-city/multi-date search can easily be
-15-40 requests, so give the user a rough cost estimate before running a big
-batch (the Artifact's own "預估查詢量" field does this for whatever's in the
-form).
+`fetch_raw_html()` tries a **plain direct HTTP request first** (a normal
+browser User-Agent, no API key, no proxy) — this succeeds on its own most of
+the time for occasional queries. Confirmed empirically: a cold direct request
+from a fresh environment got the full page with real data on the first try.
+Don't ask the user to set up Bright Data before even attempting a query — the
+setup cost only exists for the fallback path, and most single-route or
+small-batch queries never need it at all.
+
+**When direct fetch actually fails** (Google rate-limits after enough
+requests in a short window — this mostly shows up on larger batches, e.g.
+15-40+ requests for a multi-city/multi-date search), the script raises
+`FetchBlocked` with a ready-to-show explanation: what happened (temporary
+rate limit, not a problem with their account/computer), and how to get a free
+Bright Data account (SERP API zone, 5,000 requests/month free) as a fallback —
+worded to make clear this is a third-party free service unrelated to
+JojoNowhere, not something she benefits from. Surface that message as-is
+rather than writing your own; it was worded carefully after the user
+specifically asked not to come across as pushing people to sign up for
+something for her benefit.
+
+If Bright Data credentials end up needed: the user has an account with a
+**SERP API** zone (not Web Unlocker, not Browser API, not the pre-built
+Scrapers — those don't return the page structure this needs). Check
+`~/.bash_profile` for `BRIGHTDATA_API_KEY` / `BRIGHTDATA_SERP_ZONE` (persisted
+there earlier) before asking the user to dig up the key again.
 
 ## Gotchas (see `references/data-format.md` for the why and the exact byte layout)
 

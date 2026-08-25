@@ -6,7 +6,7 @@ flight_deal_check.py
 
 資料來源:
   - 用 fast-flights 產生 Google Flights 的查詢參數(tfs)
-  - 用 Bright Data SERP API 把該查詢的完整網頁原始碼抓回來
+  - 直接用一般 HTTP 請求把該查詢的完整網頁原始碼抓回來(不需要任何 API key)
   - 從網頁裡藏的 AF_initDataCallback 資料包(Google 自己算好的價格洞察)解析出:
       * 目前最便宜報價
       * 該路線「典型」價格區間(低 / 高)
@@ -14,11 +14,15 @@ flight_deal_check.py
       * 過去約 61 天,每天的真實票價(price_history)
       * 每一班班機的報價、航空公司、起降時間
 
-用法:
+用法(不用設定任何東西就能跑):
+  python3 flight_deal_check.py --from TPE --to NRT --depart 2026-10-09 --return 2026-10-16
+
+如果短時間內查很多次(例如一次批次比對很多條航線、很多天),Google 可能會暫時擋下
+直接查詢。這時候程式會清楚告訴你原因,並附上申請免費 Bright Data 帳號(每月 5,000 次
+額度)的說明——那是 Bright Data 自己的免費方案,設定好以後才需要這兩個環境變數:
+
   export BRIGHTDATA_API_KEY="你的 API key"
   export BRIGHTDATA_SERP_ZONE="serp_api1"   # 你在 Bright Data 建的 zone 名稱
-
-  python3 flight_deal_check.py --from TPE --to NRT --depart 2026-10-09 --return 2026-10-16
 
 不需要在程式碼裡寫死 API key —— 一律從環境變數讀,避免不小心把金鑰存進檔案裡。
 """
@@ -81,10 +85,39 @@ def build_flights_url(
 
 
 # ---------------------------------------------------------------------------
-# 2. 透過 Bright Data SERP API 把整個網頁原始碼抓回來
+# 2. 抓網頁原始碼 —— 先直接查(不用任何 API key),查不到才用 Bright Data 當備援
 # ---------------------------------------------------------------------------
 
-def fetch_raw_html(target_url: str, api_key: str, zone: str) -> str:
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+class FetchBlocked(Exception):
+    """直接查跟 Bright Data 備援都失敗時丟出來,附上要不要設定 Bright Data 的說明。"""
+
+
+def fetch_raw_html_direct(target_url: str) -> str:
+    """不用任何 API key,直接當一般瀏覽器去問 Google。
+
+    實測過:偶爾查詢(不是短時間內連續大量查)第一次就會成功,不需要任何設定。
+    Bright Data 的價值是在短時間內大量查詢會被 Google 盯上時,用它的代理網路繞過去——
+    不是每次查詢都必要,只在直接查被擋的時候才需要。
+    """
+    resp = requests.get(target_url, headers=_BROWSER_HEADERS, timeout=30)
+    if resp.status_code != 200:
+        raise RuntimeError(f"直接查詢收到 HTTP {resp.status_code}")
+    html = resp.text
+    if len(html) < 5000:
+        raise RuntimeError(f"直接查詢回傳內容異常短({len(html)} 字元),可能被擋了")
+    return html
+
+
+def fetch_raw_html_brightdata(target_url: str, api_key: str, zone: str) -> str:
     resp = requests.post(
         BRIGHTDATA_ENDPOINT,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -97,6 +130,26 @@ def fetch_raw_html(target_url: str, api_key: str, zone: str) -> str:
         # 正常的機票頁面原始碼有幾百萬字元,太短代表被擋、查詢失敗、或格式跟預期不同
         raise RuntimeError(f"回傳內容異常短({len(html)} 字元),可能查詢失敗。內容開頭: {html[:300]!r}")
     return html
+
+
+def fetch_raw_html(target_url: str, api_key: str | None, zone: str | None) -> str:
+    """先直接查;失敗的話,有設定 Bright Data 就用它當備援,沒有就老實說明怎麼辦。"""
+    try:
+        return fetch_raw_html_direct(target_url)
+    except Exception as direct_error:
+        if api_key and zone:
+            return fetch_raw_html_brightdata(target_url, api_key, zone)
+        raise FetchBlocked(
+            "直接查詢這次沒成功"
+            f"(原因:{direct_error})。這通常是短時間內查太多次,被 Google 暫時擋下來了,\n"
+            "不是你的電腦或帳號有問題。\n\n"
+            "如果只是偶爾查一兩次,通常過一陣子再試就會恢復正常,不用做任何設定。\n"
+            "如果你要一次查很多條航線、很多天(例如批次比價),建議申請一個免費的 Bright Data "
+            "帳號(https://brightdata.com),開一個 SERP API 的 zone,每月有 5,000 次免費額度,\n"
+            "設定好 BRIGHTDATA_API_KEY 跟 BRIGHTDATA_SERP_ZONE 這兩個環境變數之後,查詢會自動改走這條路,\n"
+            "不會再被擋。這是 Bright Data 自己的免費方案,跟這個工具的作者沒有任何關係,\n"
+            "不是要你為了誰付費或註冊什麼——單純是查詢量大的時候需要的技術手段。"
+        ) from direct_error
 
 
 # ---------------------------------------------------------------------------
@@ -377,10 +430,10 @@ def validate_result(offers: list[FlightOffer], insights: "PriceInsights | None")
 def check_deal(
     from_airport: str, to_airport: str, depart_date: str, return_date: str | None, json_out: str | None = None
 ) -> None:
+    # 不強制要求 Bright Data ——先直接查,查不到才需要這兩個環境變數當備援。
+    # 沒設定也能跑,只是遇到查太多次被擋的情況時,fetch_raw_html 會清楚告訴你怎麼辦。
     api_key = os.environ.get("BRIGHTDATA_API_KEY")
     zone = os.environ.get("BRIGHTDATA_SERP_ZONE")
-    if not api_key or not zone:
-        sys.exit("請先設定環境變數 BRIGHTDATA_API_KEY 和 BRIGHTDATA_SERP_ZONE")
 
     url = build_flights_url(from_airport, to_airport, depart_date, return_date)
     print(f"查詢: {from_airport} → {to_airport}, {depart_date}" + (f" 回程 {return_date}" if return_date else ""))
@@ -390,7 +443,10 @@ def check_deal(
     offers, insights = [], None
     for attempt in range(1, max_attempts + 1):
         print(f"正在抓取 Google Flights 頁面...(第 {attempt}/{max_attempts} 次嘗試)")
-        html = fetch_raw_html(url, api_key, zone)
+        try:
+            html = fetch_raw_html(url, api_key, zone)
+        except FetchBlocked as e:
+            sys.exit(str(e))
         blobs = extract_data_blobs(html)
         offers = parse_flights(blobs)
         insights = parse_price_insights(blobs)

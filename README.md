@@ -25,14 +25,22 @@ research workflow. Paired with a published Claude Artifact query-builder UI
 
 ## Setup
 
-Needs a [Bright Data](https://brightdata.com) account with a **SERP API**
-zone (not Web Unlocker / Browser API / pre-built Scrapers).
+None needed to start — it queries Google Flights directly:
+
+```bash
+python3 scripts/flight_deal_check.py --from TPE --to NRT --depart 2026-10-09 --return 2026-10-16
+```
+
+Google occasionally rate-limits direct requests if you run a lot of queries
+in a short window (e.g. batch-comparing many routes/dates at once). If that
+happens, the script explains what happened and points you to a free
+[Bright Data](https://brightdata.com) account (SERP API zone, 5,000
+requests/month free) as a fallback — unrelated to this project, just the
+proxy service that gets past the rate limit:
 
 ```bash
 export BRIGHTDATA_API_KEY="your-api-key"
 export BRIGHTDATA_SERP_ZONE="your-zone-name"
-
-python3 scripts/flight_deal_check.py --from TPE --to NRT --depart 2026-10-09 --return 2026-10-16
 ```
 
 No API keys are committed to this repo.
