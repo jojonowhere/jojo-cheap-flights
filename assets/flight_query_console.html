@@ -81,6 +81,30 @@
     max-width: 64ch;
   }
 
+  /* ---------- 第一次打開才出現的歡迎詞,關掉後 localStorage 記住,不會再跳 ---------- */
+  .welcome-card{
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--cat-price);
+    border-radius: 10px;
+    padding: 18px 44px 18px 20px;
+    margin-bottom: 24px;
+  }
+  .welcome-card.hidden{ display:none; }
+  .welcome-greeting{ margin: 0 0 10px; font-weight: 600; }
+  .welcome-list{ margin: 0 0 12px; padding-left: 1.2em; display:flex; flex-direction:column; gap:6px; }
+  .welcome-list li{ color: var(--ink-muted); }
+  .welcome-footer{ margin:0; font-size: 13.5px; color: var(--ink-muted); }
+  .welcome-footer a{ color: var(--cat-price); text-decoration: none; font-weight:600; }
+  .welcome-footer a:hover{ text-decoration: underline; }
+  .welcome-close{
+    position: absolute; top: 12px; right: 12px;
+    border:0; background:transparent; color: var(--ink-faint);
+    font-size: 14px; cursor:pointer; padding: 4px 7px; border-radius: 6px;
+  }
+  .welcome-close:hover{ background: var(--surface-inset); color: var(--ink); }
+
   details.explainer{
     background: var(--surface);
     border: 1px solid var(--line);
@@ -407,6 +431,16 @@
   .takeaway.good{ border-left-color: var(--good); }
   .takeaway b{ font-family: var(--font-mono); }
 
+  .chart-card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+  }
+  .chart-card h3{ font-family: var(--font-display); font-size: 16px; font-weight:600; margin: 0 0 2px; }
+  .chart-card .chart-sub{ font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; }
+
   .deal-table-wrap{ overflow-x:auto; }
   table.deal-table{
     width:100%;
@@ -514,6 +548,17 @@
     <h1>JoJo 便宜機票查詢台</h1>
     <p>設定「時間、起站、終點站」這三個屬性——每個都可以固定、給清單、或整個開放讓引擎去找;「價格」不是拿來搜尋的軸,而是最後排序、判斷優惠程度用的依據。沒填的欄位一律當作「不限制」。</p>
   </header>
+
+  <div class="welcome-card" id="welcomeCard">
+    <button class="welcome-close" id="welcomeClose" aria-label="關閉">✕</button>
+    <p class="welcome-greeting">嗨,我是 JoJo,這是我自己做出來的機票比價工具:</p>
+    <ul class="welcome-list">
+      <li>拿這條航線過去 61 天的真實價格出來比,用統計方式告訴你現在划不划算</li>
+      <li>時間、起站、終點站、預算,四個條件都能自己決定要固定、給清單、還是整個開放讓它去找</li>
+      <li>查過的紀錄都在下面,摺疊頁打開就是一頁式整理,取代你在網頁上開二十幾個分頁</li>
+    </ul>
+    <p class="welcome-footer">有想法想跟我說,IG 找 <a href="https://instagram.com/JoJo.nowhere" target="_blank" rel="noopener">@JoJo.nowhere</a>,私訊我,看到都會回。</p>
+  </div>
 
   <details class="explainer">
     <summary>這個介面背後的規則(展開看)</summary>
@@ -1121,6 +1166,36 @@
     return 'NT$' + twd.toLocaleString();
   };
 
+  // 鐘型曲線:給 mean/sd/current 三個數字就能畫,不用每次查詢都手算座標點。
+  function bellCurveSvg(mean, sd, current, currency){
+    const W = 640, H = 170, PAD = 12;
+    const lo = mean - 3.2 * sd, hi = mean + 3.2 * sd;
+    const N = 80;
+    const pdf = x => (1 / (sd * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * ((x - mean) / sd) ** 2);
+    const xs = Array.from({length: N}, (_, i) => lo + i * (hi - lo) / (N - 1));
+    const ys = xs.map(pdf);
+    const ymax = Math.max(...ys);
+    const bx = x => PAD + (x - lo) * (W - 2 * PAD) / (hi - lo);
+    const by = y => (H - PAD) - (y / ymax) * (H - 2 * PAD - 14);
+    const pts = xs.map((x, i) => `${bx(x).toFixed(1)},${by(ys[i]).toFixed(1)}`).join(' ');
+    const ciLo = mean - 1.96 * sd, ciHi = mean + 1.96 * sd;
+    const curX = bx(current), curY = by(pdf(current));
+    const labelX = Math.min(Math.max(curX + 6, 4), W - 110);
+    return `
+      <svg viewBox="0 0 ${W} ${H + 20}" preserveAspectRatio="none" style="width:100%;height:auto;display:block;overflow:visible;">
+        <rect x="${bx(ciLo).toFixed(1)}" y="${PAD}" width="${(bx(ciHi) - bx(ciLo)).toFixed(1)}" height="${(H - PAD).toFixed(1)}" fill="var(--surface-inset)" />
+        <line x1="${bx(mean).toFixed(1)}" y1="${PAD}" x2="${bx(mean).toFixed(1)}" y2="${H}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="3 3"/>
+        <polyline points="${pts}" fill="none" stroke="var(--cat-time)" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="${curX.toFixed(1)}" cy="${curY.toFixed(1)}" r="5" fill="var(--cat-price)" stroke="var(--surface)" stroke-width="2"/>
+        <line x1="${curX.toFixed(1)}" y1="${curY.toFixed(1)}" x2="${curX.toFixed(1)}" y2="${H}" stroke="var(--cat-price)" stroke-width="1.5" stroke-dasharray="3 2"/>
+        <text x="${labelX.toFixed(1)}" y="${Math.max(curY - 8, 14).toFixed(1)}" font-family="var(--font-mono)" font-size="11" fill="var(--cat-price)" font-weight="600">現在 ${fmtPrice(current, currency)}</text>
+        <text x="${(bx(mean) + 4).toFixed(1)}" y="${H + 15}" font-family="var(--font-mono)" font-size="10" fill="var(--ink-faint)">均價 ${fmtPrice(Math.round(mean), currency)}</text>
+        <text x="${(bx(ciLo) + 4).toFixed(1)}" y="${H + 15}" font-family="var(--font-mono)" font-size="10" fill="var(--ink-faint)">${fmtPrice(Math.round(ciLo), currency)}</text>
+        <text x="${(bx(ciHi) - 78).toFixed(1)}" y="${H + 15}" font-family="var(--font-mono)" font-size="10" fill="var(--ink-faint)">${fmtPrice(Math.round(ciHi), currency)}</text>
+      </svg>
+    `;
+  }
+
   function resultBlockHtml(data){
     // 有優惠%資料的排前面(由高到低),有價格但沒優惠%資料的接著(由便宜到貴),完全查不到的放最後。
     const hasDiscount = r => typeof r.discount_pct === 'number';
@@ -1134,22 +1209,32 @@
     });
     const withDiscount = rows.filter(hasDiscount);
     const hits = withDiscount.filter(r => r.discount_pct >= data.threshold_pct);
+    const best = withDiscount[0] || null;
 
     let takeawayHtml;
-    if(!withDiscount.length){
-      takeawayHtml = `<div class="takeaway"><span>⚠️</span><div>這條航線資料量太少,Google 沒有足夠的歷史資料算出優惠%——以下老實列出目前查到的絕對價格,依便宜到貴排序,查不到的也列出來不隱藏。</div></div>`;
+    if(!best){
+      takeawayHtml = `<div class="takeaway"><span>⚠️</span><div>這條航線資料量太少,Google 沒有足夠的歷史資料算出優惠% —— 以下列出目前查到的絕對價格,依便宜到貴排序,查不到的也列出來。</div></div>`;
     } else {
-      const best = withDiscount[0];
+      const prNote = typeof best.pr === 'number' ? `PR ${best.pr}——跟過去 61 天比,贏過 ${best.pr}% 的日子` : '';
       takeawayHtml = hits.length
-        ? `<div class="takeaway good"><span>✅</span><div>找到 <b>${hits.length}</b> 組符合門檻(≥${data.threshold_pct}%)的優惠,最佳是 <b>${cityName(best.origin_code)} ${fmtDate(best.date)}</b>,${fmtPrice(best.price, data.currency)},比歷史均價便宜 <b>${best.discount_pct.toFixed(1)}%</b>。</div></div>`
-        : `<div class="takeaway"><span>⚠️</span><div>這次查詢<b>沒有任何一組</b>達到 ${data.threshold_pct}% 優惠門檻。最接近的是 <b>${cityName(best.origin_code)} ${fmtDate(best.date)}</b>,${fmtPrice(best.price, data.currency)},比歷史均價${best.discount_pct >= 0 ? '便宜' : '貴'} <b>${Math.abs(best.discount_pct).toFixed(1)}%</b>。</div></div>`;
+        ? `<div class="takeaway good"><span>✅</span><div>找到 <b>${hits.length}</b> 組符合門檻(≥${data.threshold_pct}%)的優惠,最佳是 <b>${cityName(best.origin_code)} ${fmtDate(best.date)}</b>,${fmtPrice(best.price, data.currency)},${prNote}。</div></div>`
+        : `<div class="takeaway"><span>⚠️</span><div>這次查詢<b>沒有任何一組</b>達到 ${data.threshold_pct}% 優惠門檻。最接近的是 <b>${cityName(best.origin_code)} ${fmtDate(best.date)}</b>,${fmtPrice(best.price, data.currency)},${prNote}。</div></div>`;
     }
 
+    const chartHtml = data.chart
+      ? `<div class="chart-card">
+          <h3>價格分佈曲線(常態近似)</h3>
+          <p class="chart-sub">${best ? cityName(best.origin_code)+' '+fmtDate(best.date) : ''} · 灰色帶是 95% 信賴區間,紅點是現在的報價</p>
+          ${bellCurveSvg(data.chart.mean, data.chart.sd, data.chart.current, data.currency)}
+        </div>`
+      : `<p class="hint">這條航線資料不足,沒有分佈圖可以畫。</p>`;
+
     const rowsHtml = rows.map((r, i) => {
-      let pillClass, pillText;
+      let pillClass, pillText, pillTitle = '';
       if(hasDiscount(r)){
         pillClass = r.discount_pct >= data.threshold_pct ? 'good' : (r.discount_pct < 0 ? 'bad' : 'neutral');
-        pillText = r.discount_pct >= 0 ? `省 ${r.discount_pct.toFixed(1)}%` : `貴 ${Math.abs(r.discount_pct).toFixed(1)}%`;
+        pillText = typeof r.pr === 'number' ? `PR ${r.pr}` : (r.discount_pct >= 0 ? `省 ${r.discount_pct.toFixed(1)}%` : `貴 ${Math.abs(r.discount_pct).toFixed(1)}%`);
+        pillTitle = `跟過去 61 天比,贏過 ${r.pr}% 的日子,比歷史均價${r.discount_pct >= 0 ? '便宜' : '貴'} ${Math.abs(r.discount_pct).toFixed(1)}%`;
       } else if(hasPrice(r)){
         pillClass = 'neutral'; pillText = '資料不足,無法算優惠%';
       } else {
@@ -1163,7 +1248,7 @@
           <td class="cell-date">${fmtDate(r.date)}<span class="wd">${weekday(r.date)}</span></td>
           <td class="cell-origin">${cityName(r.origin_code)}<span class="code">${r.origin_code}</span></td>
           <td class="cell-price">${hasPrice(r) ? fmtPrice(r.price, data.currency) : '—'}</td>
-          <td><span class="pill ${pillClass}">${pillText}</span></td>
+          <td><span class="pill ${pillClass}" title="${pillTitle}">${pillText}</span></td>
           <td class="cell-meta">${r.airline || '—'}</td>
           <td>${buyLink}</td>
         </tr>`;
@@ -1176,6 +1261,7 @@
       </div>
       <p class="fetched-note">資料來源:Google Flights,透過 Bright Data 於 ${data.searched_at} 抓取 · 優惠門檻 ${data.threshold_pct}%${data.currency === 'USD' ? ` · 原始報價為美金,以 1 USD ≈ NT$${USD_TO_TWD} 換算顯示(非即時匯率)` : ''}</p>
       ${takeawayHtml}
+      ${chartHtml}
       <div class="deal-table-wrap">
         <table class="deal-table">
           <thead><tr><th>日期</th><th>起站</th><th>最低價</th><th>相對歷史均價</th><th>航空公司</th><th>去哪買</th></tr></thead>
@@ -1258,22 +1344,23 @@
       searched_at: "2026-08-27",
       threshold_pct: 8,
       currency: "USD",
+      chart: {mean: 328.61, sd: 44.29, current: 313},
       rows: [
-        {origin_code:"PVG", date:"2026-09-14", price:435, discount_pct:-32.8, airline:"China Southern", offers_count:5, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"PVG", date:"2026-09-15", price:419, discount_pct:-11.3, airline:"Hainan",         offers_count:4, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"PVG", date:"2026-09-16", price:313, discount_pct:0.7,   airline:"China Southern", offers_count:4, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"PVG", date:"2026-09-17", price:313, discount_pct:4.8,   airline:"China Southern", offers_count:3, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"PVG", date:"2026-09-18", price:440, discount_pct:-18.9, airline:"China Southern", offers_count:5, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"CAN", date:"2026-09-14", price:415, discount_pct:-14.5, airline:"Hainan",         offers_count:7, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"CAN", date:"2026-09-15", price:354, discount_pct:-3.2,  airline:"Hainan",         offers_count:6, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"CAN", date:"2026-09-16", price:354, discount_pct:-9.3,  airline:"Hainan",         offers_count:6, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"CAN", date:"2026-09-17", price:354, discount_pct:-1.6,  airline:"Hainan",         offers_count:6, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"CAN", date:"2026-09-18", price:407, discount_pct:-1.7,  airline:"China Southern", offers_count:8, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"PEK", date:"2026-09-14", price:453, discount_pct:0.2,   airline:"Hainan",         offers_count:1, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"PEK", date:"2026-09-15", price:453, discount_pct:-2.6,  airline:"Hainan",         offers_count:2, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"PEK", date:"2026-09-16", price:453, discount_pct:-2.6,  airline:"Hainan",         offers_count:2, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"PEK", date:"2026-09-17", price:453, discount_pct:-2.6,  airline:"Hainan",         offers_count:1, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
-        {origin_code:"PEK", date:"2026-09-18", price:524, discount_pct:-14.3, airline:"Hainan",         offers_count:2, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-14", price:435, discount_pct:-32.8, pr:2,  airline:"China Southern", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-15", price:419, discount_pct:-11.3, pr:16, airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-16", price:313, discount_pct:0.7,   pr:58, airline:"China Southern", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-17", price:313, discount_pct:4.8,   pr:69, airline:"China Southern", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-18", price:440, discount_pct:-18.9, pr:2,  airline:"China Southern", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-14", price:415, discount_pct:-14.5, pr:8,  airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-15", price:354, discount_pct:-3.2,  pr:22, airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-16", price:354, discount_pct:-9.3,  pr:20, airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-17", price:354, discount_pct:-1.6,  pr:21, airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-18", price:407, discount_pct:-1.7,  pr:67, airline:"China Southern", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-14", price:453, discount_pct:0.2,   pr:23, airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-15", price:453, discount_pct:-2.6,  pr:8,  airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-16", price:453, discount_pct:-2.6,  pr:8,  airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-17", price:453, discount_pct:-2.6,  pr:8,  airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-18", price:524, discount_pct:-14.3, pr:8,  airline:"Hainan",         search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
       ]
     },
     {
@@ -1283,12 +1370,26 @@
       searched_at: "2026-08-26",
       threshold_pct: 15,
       currency: "USD",
+      chart: {mean: 297.94, sd: 23.09, current: 289},
       rows: [
-        {origin_code:"TPE", date:"2026-10-09", price:289, discount_pct:3.0, airline:"Tigerair Taiwan", offers_count:25, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMTAtMDlqBRIDVFBFcgUSA05SVBoaEgoyMDI2LTEwLTE2agUSA05SVHIFEgNUUEVCAQFIAZgBAQ%3D%3D&hl=en&curr=USD"},
+        {origin_code:"TPE", date:"2026-10-09", price:289, discount_pct:3.0, pr:66, airline:"Tigerair Taiwan", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMTAtMDlqBRIDVFBFcgUSA05SVBoaEgoyMDI2LTEwLTE2agUSA05SVHIFEgNUUEVCAQFIAZgBAQ%3D%3D&hl=en&curr=USD"},
       ]
     },
   ];
   renderHistory(RESULTS_HISTORY);
+
+  // 歡迎詞只出現一次:關掉就記住,以後重新整理或我更新頁面都不會再跳出來。
+  const WELCOME_STORAGE_KEY = 'jojo_welcome_seen_v1';
+  (function initWelcome(){
+    const card = document.getElementById('welcomeCard');
+    let seen = false;
+    try { seen = localStorage.getItem(WELCOME_STORAGE_KEY) === '1'; } catch(e) {}
+    if(seen){ card.classList.add('hidden'); return; }
+    document.getElementById('welcomeClose').addEventListener('click', ()=>{
+      card.classList.add('hidden');
+      try { localStorage.setItem(WELCOME_STORAGE_KEY, '1'); } catch(e) {}
+    });
+  })();
 
   document.querySelectorAll('.rt-only').forEach(el=> el.style.display = '');
   restoreFormState();

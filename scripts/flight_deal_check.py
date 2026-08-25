@@ -226,12 +226,15 @@ class PriceInsights:
         hist_median = median(hist_prices)
         hist_sd = pstdev(hist_prices)
 
+        # PR 值:跟大考成績單同一個概念——這張票贏過過去幾 % 的日子。
+        # PR 越高,代表過去越多天比現在貴,現在買越划算。
         cheaper_than = sum(1 for p in hist_prices if p >= self.current_price)
-        percentile = round(100 * cheaper_than / len(hist_prices))  # 現在價格贏過過去幾 % 的日子
+        pr = round(100 * cheaper_than / len(hist_prices))
         z_score = (self.current_price - hist_mean) / hist_sd if hist_sd else 0.0
 
         return {
             "目前最便宜報價": self.current_price,
+            "PR值": f"PR{pr}（跟過去 {len(hist_prices)} 天比,贏過 {pr}%,PR 越高越划算）",
             "Google 標示": self.price_level_label,
             "典型價格區間": f"${self.typical_low} - ${self.typical_high}",
             "過去61天歷史均價": round(hist_mean),
@@ -240,7 +243,6 @@ class PriceInsights:
             "95%信賴區間(常態分佈近似)": f"${round(hist_mean - 1.96 * hist_sd)} - ${round(hist_mean + 1.96 * hist_sd)}",
             "目前價格的Z分數": f"{z_score:+.2f} 個標準差",
             "比歷史均價便宜多少%": round(100 * (hist_mean - self.current_price) / hist_mean, 1),
-            "贏過過去幾%的日子": f"{percentile}%（數字越高代表現在越便宜）",
         }
 
     def stats(self) -> dict:
@@ -248,12 +250,14 @@ class PriceInsights:
         hist_prices = [p for _, p in self.history]
         hist_mean = mean(hist_prices)
         hist_sd = pstdev(hist_prices)
+        cheaper_than = sum(1 for p in hist_prices if p >= self.current_price)
         return {
             "mean": hist_mean,
             "sd": hist_sd,
             "ci95_low": hist_mean - 1.96 * hist_sd,
             "ci95_high": hist_mean + 1.96 * hist_sd,
             "current": self.current_price,
+            "pr": round(100 * cheaper_than / len(hist_prices)),
         }
 
 
