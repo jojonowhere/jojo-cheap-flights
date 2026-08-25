@@ -1,0 +1,1297 @@
+<meta charset="UTF-8">
+<title>JoJo 便宜機票查詢台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg: #f7f0e3;
+    --surface: #fffdf7;
+    --surface-inset: #f0e6d3;
+    --ink: #2b2116;
+    --ink-muted: #7c6f59;
+    --ink-faint: #a89a80;
+    --line: #e5d8bf;
+    --line-strong: #d3c1a0;
+
+    --cat-time: #a97a24;
+    --cat-time-bg: #f2e3c4;
+    --cat-location: #2c7669;
+    --cat-location-bg: #dcece7;
+    --cat-price: #9c3d52;
+    --cat-price-bg: #f3dde2;
+
+    --accent: #9c3d52;
+    --accent-ink: #fff8f6;
+
+    --good: #2f7a5c;
+    --warn: #a9781f;
+    --bad: #b6472f;
+
+    --font-display: "Big Shoulders", "Arial Narrow", sans-serif;
+    --font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  /* 刻意只做這一套暖色調——不論系統是深色還是淺色模式,一律顯示同一個外觀。 */
+
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap{
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  header{
+    display:flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 32px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  h1{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(30px, 4vw, 40px);
+    letter-spacing: .01em;
+    margin: 2px 0 4px;
+    text-wrap: balance;
+  }
+  header p{
+    margin:0;
+    color: var(--ink-muted);
+    max-width: 64ch;
+  }
+
+  details.explainer{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 28px;
+  }
+  details.explainer summary{
+    cursor:pointer;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: .01em;
+    list-style: none;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  details.explainer summary::-webkit-details-marker{ display:none; }
+  details.explainer summary::before{
+    content: "▸";
+    color: var(--accent);
+    transition: transform .15s ease;
+    font-size: 13px;
+  }
+  details.explainer[open] summary::before{ transform: rotate(90deg); }
+  .explainer-body{
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line);
+    color: var(--ink-muted);
+    font-size: 14px;
+  }
+  .explainer-body p{ margin: 0 0 10px; }
+  .explainer-body p:last-child{ margin-bottom:0; }
+  .legend{ display:flex; gap:14px; flex-wrap:wrap; margin: 4px 0 12px; }
+  .legend-item{ display:flex; align-items:center; gap:6px; font-size:13px; color: var(--ink); }
+  .legend-swatch{ width:12px; height:12px; border-radius:3px; }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 720px){ .grid{ grid-template-columns: 1fr; } }
+
+  .card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--line-strong);
+    border-radius: 10px;
+    padding: 18px 20px 20px;
+  }
+  .card[data-cat="time"]{ border-left-color: var(--cat-time); }
+  .card[data-cat="location"]{ border-left-color: var(--cat-location); }
+  .card[data-cat="price"]{ border-left-color: var(--cat-price); }
+
+  .card-head{
+    display:flex;
+    align-items:baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .card-title{
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: .01em;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .card-title .dot{ width:9px; height:9px; border-radius:50%; }
+  .card[data-cat="time"] .card-title .dot{ background: var(--cat-time); }
+  .card[data-cat="location"] .card-title .dot{ background: var(--cat-location); }
+  .card[data-cat="price"] .card-title .dot{ background: var(--cat-price); }
+  .card-num{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+
+  .segmented{
+    display:flex;
+    gap: 4px;
+    background: var(--surface-inset);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 16px;
+  }
+  .segmented button{
+    flex:1;
+    border:0;
+    background: transparent;
+    color: var(--ink-muted);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 8px;
+    border-radius: 6px;
+    cursor:pointer;
+    transition: background .12s ease, color .12s ease;
+  }
+  .segmented button:hover{ color: var(--ink); }
+  .card[data-cat="time"] .segmented button.active{ background: var(--cat-time-bg); color: var(--cat-time); }
+  .card[data-cat="location"] .segmented button.active{ background: var(--cat-location-bg); color: var(--cat-location); }
+
+  .field-group{ display:none; flex-direction:column; gap:10px; }
+  .field-group.active{ display:flex; }
+
+  label{
+    font-size: 12px;
+    color: var(--ink-muted);
+    display:block;
+    margin-bottom: 4px;
+  }
+  .row{ display:flex; gap:10px; }
+  .row > div{ flex:1; }
+
+  input[type="text"], input[type="date"], input[type="number"], select{
+    width:100%;
+    background: var(--surface-inset);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  input:focus, select:focus{
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  select{ font-family: var(--font-body); }
+  .hint-optional{ font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+
+  .tag-input{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 6px;
+    background: var(--surface-inset);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 8px;
+  }
+  .tag-input input{
+    flex: 1 1 80px;
+    background: transparent;
+    border: 0;
+    padding: 3px 2px;
+    min-width: 80px;
+  }
+  .tag-input input:focus{ outline: none; }
+  .tag{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    padding: 3px 6px 3px 9px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+  }
+  .tag button{
+    border:0; background:transparent; color: var(--ink-faint);
+    cursor:pointer; font-size: 13px; line-height:1; padding: 2px;
+  }
+  .tag button:hover{ color: var(--bad); }
+  .hint{ font-size: 11.5px; color: var(--ink-faint); }
+
+  .triptype{ display:flex; gap:14px; margin-bottom: 14px; }
+  .triptype label{ display:flex; align-items:center; gap:5px; margin:0; font-size:13px; color: var(--ink); cursor:pointer; }
+
+  .slider-row{ display:flex; align-items:center; gap:12px; }
+  input[type="range"]{ flex:1; accent-color: var(--cat-price); }
+  .slider-val{
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--cat-price);
+    min-width: 42px;
+    text-align:right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .summary-bar{
+    display:flex;
+    align-items:center;
+    gap: 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 22px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .stat{ display:flex; flex-direction:column; gap:2px; }
+  .stat .k{ font-size:11px; color: var(--ink-faint); text-transform:uppercase; letter-spacing:.08em; }
+  .stat .v{ font-family: var(--font-mono); font-size: 22px; font-weight:600; font-variant-numeric: tabular-nums; }
+  .feasibility{
+    display:flex; align-items:center; gap:8px;
+    font-size: 13px; color: var(--ink-muted);
+    padding-left: 18px;
+    border-left: 1px solid var(--line);
+  }
+  .dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .dot.good{ background: var(--good); }
+  .dot.warn{ background: var(--warn); }
+  .dot.bad{ background: var(--bad); }
+
+  .spacer{ flex:1; }
+  .btn-primary{
+    border:0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 14px;
+    padding: 11px 22px;
+    border-radius: 8px;
+    cursor:pointer;
+    transition: filter .12s ease, transform .12s ease;
+  }
+  .btn-primary:hover{ filter: brightness(1.08); }
+  .btn-primary:active{ transform: translateY(1px); }
+
+  #output{ display:none; }
+  #output.active{ display:block; }
+  .output-card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px 24px;
+    margin-bottom: 28px;
+  }
+  .output-card h2{
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight:600;
+    margin: 0 0 6px;
+  }
+  .output-card .subnote{ font-size: 12.5px; color: var(--ink-faint); margin: 0 0 14px; }
+  #plain-summary{
+    color: var(--ink);
+    font-size: 14.5px;
+    line-height: 1.7;
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    background: var(--surface-inset);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+  }
+  .btn-copy{
+    border:0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 14px;
+    padding: 11px 22px;
+    border-radius: 8px;
+    cursor:pointer;
+    transition: filter .12s ease;
+  }
+  .btn-copy:hover{ filter: brightness(1.08); }
+  .btn-copy.copied{ background: var(--good); }
+  .json-fold{ margin-top: 14px; }
+  .json-fold summary{
+    cursor:pointer;
+    font-size:12px;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    list-style:none;
+  }
+  .json-fold summary::-webkit-details-marker{ display:none; }
+  .json-fold summary::before{ content:"▸ "; }
+  .json-fold[open] summary::before{ content:"▾ "; }
+  pre#json-out{
+    margin: 10px 0 0;
+    background: var(--surface-inset);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height:1.6;
+    overflow-x: auto;
+    color: var(--ink);
+  }
+
+  /* ---------- divider ---------- */
+  .divider{
+    display:flex; align-items:center; gap:14px;
+    margin: 40px 0 22px;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+  }
+  .divider::before, .divider::after{ content:""; flex:1; height:1px; background: var(--line); }
+
+  /* ---------- results (資料驅動,結構固定,以後只換資料不換版面) ---------- */
+  .results-head{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+  .results-head h2{ font-family: var(--font-display); font-size:26px; font-weight:700; margin:0; }
+  .results-head .meta{ font-family: var(--font-mono); color: var(--ink-muted); font-size: 13px; }
+  .fetched-note{ font-size: 12px; color: var(--ink-faint); margin: 0 0 18px; }
+
+  .takeaway{
+    display:flex; align-items:flex-start; gap:10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--cat-price);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+  .takeaway.good{ border-left-color: var(--good); }
+  .takeaway b{ font-family: var(--font-mono); }
+
+  .deal-table-wrap{ overflow-x:auto; }
+  table.deal-table{
+    width:100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 13.5px;
+  }
+  table.deal-table th{
+    text-align:left;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--ink-faint);
+    padding: 10px 14px;
+    background: var(--surface-inset);
+    border-bottom: 1px solid var(--line);
+  }
+  table.deal-table td{
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  table.deal-table tr:last-child td{ border-bottom: 0; }
+  table.deal-table tr.best-row{ background: var(--cat-price-bg); }
+  .cell-date{ font-family: var(--font-mono); white-space:nowrap; }
+  .cell-date .wd{ color: var(--ink-faint); font-size: 11.5px; margin-left:4px; }
+  .cell-origin{ font-weight:600; }
+  .cell-origin .code{ color: var(--ink-faint); font-family: var(--font-mono); font-size: 11.5px; font-weight:400; margin-left:4px; }
+  .cell-price{ font-family: var(--font-mono); font-weight:700; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .cell-meta{ color: var(--ink-muted); font-size: 12.5px; }
+  .pill{
+    display:inline-flex; align-items:center; gap:4px;
+    font-family: var(--font-mono); font-size: 12px; font-weight:600;
+    padding: 3px 9px; border-radius: 999px;
+    white-space:nowrap;
+  }
+  .pill.good{ background: var(--cat-location-bg); color: var(--cat-location); }
+  .pill.bad{ background: var(--cat-price-bg); color: var(--cat-price); }
+  .pill.neutral{ background: var(--surface-inset); color: var(--ink-muted); }
+  table.deal-table a{ color: var(--cat-location); font-size: 12.5px; text-decoration: none; white-space:nowrap; }
+  table.deal-table a:hover{ text-decoration: underline; }
+
+  /* ---------- 過去查詢:摺疊、可個別刪除,避免頁面越疊越長 ---------- */
+  details.history-fold{
+    margin-top: 26px;
+    border-top: 1px dashed var(--line);
+    padding-top: 16px;
+  }
+  details.history-fold > summary{
+    cursor:pointer;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--ink-faint);
+    list-style:none;
+  }
+  details.history-fold > summary::-webkit-details-marker{ display:none; }
+  details.history-fold > summary::before{ content:"▸ "; }
+  details.history-fold[open] > summary::before{ content:"▾ "; }
+
+  details.history-item{
+    margin-top: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 16px;
+  }
+  details.history-item > summary{
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    font-size: 13.5px;
+    color: var(--ink-muted);
+    list-style:none;
+  }
+  details.history-item > summary::-webkit-details-marker{ display:none; }
+  details.history-item .results-head{ margin-top:14px; }
+  .btn-delete{
+    border:1px solid var(--line-strong);
+    background: var(--surface-inset);
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .btn-delete:hover{ color: var(--cat-price); border-color: var(--cat-price); }
+
+  footer{ margin-top: 30px; font-size: 12px; color: var(--ink-faint); text-align:center; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">JoJoNowhere · Flight Deal Query Builder</div>
+    <h1>JoJo 便宜機票查詢台</h1>
+    <p>設定「時間、起站、終點站」這三個屬性——每個都可以固定、給清單、或整個開放讓引擎去找;「價格」不是拿來搜尋的軸,而是最後排序、判斷優惠程度用的依據。沒填的欄位一律當作「不限制」。</p>
+  </header>
+
+  <details class="explainer">
+    <summary>這個介面背後的規則(展開看)</summary>
+    <div class="explainer-body">
+      <div class="legend">
+        <span class="legend-item"><span class="legend-swatch" style="background:var(--cat-time)"></span>時間</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:var(--cat-location)"></span>地點(起站 / 終點站共用同一個顏色)</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:var(--cat-price)"></span>價格(判斷依據)</span>
+      </div>
+      <p>卡片邊框顏色代表「這是哪一種屬性」,起站跟終點站都是地點,所以用同一個顏色。模式(固定 / 列舉 / 開放)在卡片內的分段按鈕上選,跟顏色無關。</p>
+      <p>時間、起站、終點站每一個都要選一種模式:<b>固定</b>當作篩選條件、只認這一個值;<b>列舉</b>給一組清單,引擎每個都查一次;<b>開放</b>不指定明確範圍,讓引擎自己在預設邊界內探索。留白 = 不限制,不會影響其他欄位。</p>
+      <p>總查詢量 ≈ 時間的組合數 × 起站的組合數 × 終點站的組合數。三個裡面<b>最多開放一個</b>,不然組合數會爆炸。「價格」不是搜尋軸,是算出來的結果:每個查回來的報價,會拿去跟這條航線<b>過去約 61 天的真實每日票價</b>比對,算出現在算便宜還是貴。</p>
+    </div>
+  </details>
+
+  <!-- ============ GRID: 時間 / 價格 上排,起站 / 終點站 下排 ============ -->
+  <div class="grid">
+
+    <!-- TIME -->
+    <div class="card" id="card-time" data-cat="time">
+      <div class="card-head">
+        <span class="card-title"><span class="dot"></span>時間</span>
+        <span class="card-num">01 / 04</span>
+      </div>
+
+      <div class="triptype">
+        <label><input type="radio" name="triptype" value="oneway"> 單程</label>
+        <label><input type="radio" name="triptype" value="roundtrip" checked> 來回</label>
+      </div>
+
+      <div class="segmented" data-target="time">
+        <button data-m="fixed">固定日期</button>
+        <button data-m="range" class="active">日期範圍</button>
+        <button data-m="open">開放區間</button>
+      </div>
+
+      <div class="field-group" data-group="time-fixed">
+        <div class="row">
+          <div><label>出發日期</label><input type="date" id="time-fixed-dep"></div>
+          <div class="rt-only"><label>回程日期</label><input type="date" id="time-fixed-ret"></div>
+        </div>
+      </div>
+
+      <div class="field-group active" data-group="time-range">
+        <div class="row">
+          <div><label>最早出發</label><input type="date" id="time-range-start"></div>
+          <div><label>最晚出發</label><input type="date" id="time-range-end"></div>
+        </div>
+        <div class="row rt-only">
+          <div><label>停留天數(最短)</label><input type="number" id="time-stay-min" value="4" min="1"></div>
+          <div><label>停留天數(最長)</label><input type="number" id="time-stay-max" value="10" min="1"></div>
+        </div>
+        <div>
+          <label>取樣頻率</label>
+          <select id="time-sample">
+            <option value="1">每天</option>
+            <option value="3" selected>每 3 天</option>
+            <option value="7">每週</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-group" data-group="time-open">
+        <div>
+          <label>探索未來幾個月</label>
+          <select id="time-open-months">
+            <option value="3">3 個月</option>
+            <option value="6" selected>6 個月</option>
+            <option value="12">12 個月</option>
+          </select>
+        </div>
+        <div class="row rt-only">
+          <div><label>停留天數(最短)</label><input type="number" id="time-open-stay-min" value="4" min="1"></div>
+          <div><label>停留天數(最長)</label><input type="number" id="time-open-stay-max" value="10" min="1"></div>
+        </div>
+        <p class="hint">預設以每週取樣一次估算查詢量。</p>
+      </div>
+    </div>
+
+    <!-- PRICE -->
+    <div class="card" id="card-price" data-cat="price">
+      <div class="card-head">
+        <span class="card-title"><span class="dot"></span>價格(判斷依據)</span>
+        <span class="card-num">02 / 04</span>
+      </div>
+
+      <div>
+        <label>最高預算(NT$)</label>
+        <input type="number" id="price-max" placeholder="留白 = 不限">
+      </div>
+
+      <div style="margin-top:14px;">
+        <label>最低優惠門檻 —— 只看比歷史「典型價」便宜多少 % 以上</label>
+        <div class="slider-row">
+          <input type="range" id="price-discount" min="0" max="50" value="15">
+          <span class="slider-val" id="price-discount-val">15%</span>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label>排序依據</label>
+        <select id="price-sort">
+          <option value="discount" selected>優惠幅度(相對歷史價)最高優先</option>
+          <option value="absolute">絕對價格最低優先</option>
+        </select>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label>直飛 / 轉機</label>
+        <select id="price-stops">
+          <option value="any" selected>不限(直飛、轉機都要)</option>
+          <option value="nonstop">只要直飛</option>
+          <option value="connecting">只要轉機(通常更便宜)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ORIGIN -->
+    <div class="card" id="card-origin" data-cat="location">
+      <div class="card-head">
+        <span class="card-title"><span class="dot"></span>起站範圍</span>
+        <span class="card-num">03 / 04</span>
+      </div>
+
+      <div class="segmented" data-target="origin">
+        <button data-m="range" class="active">機場清單</button>
+        <button data-m="open">開放範圍</button>
+      </div>
+
+      <div class="field-group active" data-group="origin-range">
+        <div>
+          <label>輸入一個或多個機場代碼,按 Enter 加入(離開輸入框也會自動加入)</label>
+          <div class="tag-input" id="origin-tags"><input type="text" placeholder="TPE"></div>
+        </div>
+        <p class="hint">只打一個代碼就等於固定機場;打多個,系統會平行查每一個。留白 = 不限制起站。</p>
+      </div>
+
+      <div class="field-group" data-group="origin-open">
+        <div>
+          <label>以此機場為中心</label>
+          <input type="text" id="origin-open-center" value="TPE" maxlength="3" style="text-transform:uppercase">
+        </div>
+        <div>
+          <label>範圍</label>
+          <select id="origin-open-radius">
+            <option value="3h">同城市 3 小時車程內(含廉航樞紐)</option>
+            <option value="country">同一國家內</option>
+            <option value="region">鄰近國家(區域內)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESTINATION -->
+    <div class="card" id="card-dest" data-cat="location">
+      <div class="card-head">
+        <span class="card-title"><span class="dot"></span>終點站範圍</span>
+        <span class="card-num">04 / 04</span>
+      </div>
+
+      <div class="segmented" data-target="dest">
+        <button data-m="range" class="active">機場清單</button>
+        <button data-m="open">開放範圍</button>
+        <button data-m="explore">開放探索</button>
+      </div>
+
+      <div class="field-group active" data-group="dest-range">
+        <div>
+          <label>輸入一個或多個機場代碼,按 Enter 加入(例如同城市多機場)</label>
+          <div class="tag-input" id="dest-tags"><input type="text" placeholder="NRT"></div>
+        </div>
+        <p class="hint">只打一個代碼就等於固定機場;打多個適合「鎖定某個城市的幾個機場」這種用法。留白 = 不限制終點站。</p>
+      </div>
+
+      <div class="field-group" data-group="dest-open">
+        <div>
+          <label>以此機場為中心</label>
+          <input type="text" id="dest-open-center" value="NRT" maxlength="3" style="text-transform:uppercase">
+        </div>
+        <div>
+          <label>範圍</label>
+          <select id="dest-open-radius">
+            <option value="3h">同城市 3 小時車程內(含廉航樞紐)</option>
+            <option value="country">同一國家內</option>
+            <option value="region">鄰近國家(區域內)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-group" data-group="dest-explore">
+        <div>
+          <label>想探索的範圍(自由輸入)</label>
+          <input type="text" id="dest-explore-query" placeholder="例如:東南亞、有雪的地方、預算內飛得到的南美城市">
+        </div>
+        <div>
+          <label>最多探索幾個目的地</label>
+          <input type="number" id="dest-explore-limit" value="15" min="1" max="50">
+        </div>
+        <p class="hint">不指定機場,讓引擎依「優惠幅度」自己找最值得去的地方;這句話會直接交給 Claude 判讀,不是選單。</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ SUMMARY BAR ============ -->
+  <div class="summary-bar">
+    <div class="stat">
+      <span class="k">預估查詢量</span>
+      <span class="v" id="stat-count">—</span>
+    </div>
+    <div class="feasibility">
+      <span class="dot good" id="feas-dot"></span>
+      <span id="feas-text">計算中</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn-primary" id="btn-generate">查詢</button>
+  </div>
+  <p class="hint" style="margin: -14px 0 22px; text-align:right;">按下去會產生規格(這個網頁沒辦法安全地帶著你的 API key 直接連外部服務);把結果貼給 Claude、或直接跟他說「幫我查現在這組設定」,他會真的去查,更新下面的結果。</p>
+
+  <!-- ============ OUTPUT ============ -->
+  <div id="output">
+    <div class="output-card">
+      <h2>查詢規格</h2>
+      <p class="subnote">下一步:按下面「一鍵複製」,貼回左邊對話框跟 Claude 說一聲(例如「幫我查這個」),他會真的去查,查完換你在下面「查詢結果」看到新資料。</p>
+      <p id="plain-summary"></p>
+      <button class="btn-copy" id="btn-copy">📋 一鍵複製,貼給 Claude</button>
+      <details class="json-fold">
+        <summary>自動複製失敗時,展開手動選取複製</summary>
+        <pre id="json-out"></pre>
+      </details>
+    </div>
+  </div>
+
+  <!-- ============ RESULTS (real data) ============ -->
+  <div class="divider">查詢結果</div>
+
+  <div id="results-root"></div>
+
+  <footer>價格與統計每次重新查詢後才會更新 —— 想查新的航線,直接跟 Claude 說就好。</footer>
+
+</div>
+
+<script>
+(function(){
+  const state = {
+    tripType: 'roundtrip',
+    time: { mode: 'range' },
+    origin: { mode: 'range', tags: ['TPE'] },
+    dest: { mode: 'range', tags: ['NRT'] },
+  };
+
+  document.querySelectorAll('input[name="triptype"]').forEach(r=>{
+    r.addEventListener('change', e=>{
+      state.tripType = e.target.value;
+      document.querySelectorAll('.rt-only').forEach(el=>{
+        el.style.display = state.tripType === 'roundtrip' ? '' : 'none';
+      });
+      recompute();
+    });
+  });
+
+  document.querySelectorAll('.segmented').forEach(seg=>{
+    const target = seg.dataset.target;
+    seg.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = btn.dataset.m;
+        state[target].mode = mode;
+
+        document.querySelectorAll(`[data-group^="${target}-"]`).forEach(g=>g.classList.remove('active'));
+        document.querySelector(`[data-group="${target}-${mode}"]`).classList.add('active');
+        recompute();
+      });
+    });
+  });
+
+  function setupTagInput(containerId, stateObj){
+    const container = document.getElementById(containerId);
+    const input = container.querySelector('input');
+    function render(){
+      container.querySelectorAll('.tag').forEach(t=>t.remove());
+      stateObj.tags.forEach((code, i)=>{
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.innerHTML = `${code} <button type="button" aria-label="移除">&times;</button>`;
+        tag.querySelector('button').addEventListener('click', ()=>{
+          stateObj.tags.splice(i,1); render(); recompute();
+        });
+        container.insertBefore(tag, input);
+      });
+    }
+    function commit(){
+      input.value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean).forEach(code=>{
+        if(!stateObj.tags.includes(code)) stateObj.tags.push(code);
+      });
+      input.value = '';
+      render(); recompute();
+    }
+    const isEnter = e => e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13;
+    input.addEventListener('keydown', e=>{
+      if((isEnter(e) || e.key === ',') && input.value.trim()){
+        e.preventDefault();
+        commit();
+      } else if(e.key === 'Backspace' && !input.value && stateObj.tags.length){
+        stateObj.tags.pop(); render(); recompute();
+      }
+    });
+    input.addEventListener('blur', ()=>{ if(input.value.trim()) commit(); });
+    render();
+    return render;
+  }
+  const tagRenderers = {
+    origin: setupTagInput('origin-tags', state.origin),
+    dest: setupTagInput('dest-tags', state.dest),
+  };
+
+  const discountSlider = document.getElementById('price-discount');
+  const discountVal = document.getElementById('price-discount-val');
+  discountSlider.addEventListener('input', ()=>{ discountVal.textContent = discountSlider.value + '%'; });
+
+  // ---- 表單記憶:填過的東西存在瀏覽器裡,重新整理、或我更新頁面之後都不會不見 ----
+  const FORM_STORAGE_KEY = 'jojo_flight_console_form_v1';
+  const OUTPUT_STORAGE_KEY = 'jojo_flight_console_output_shown_v1';
+  const SAVED_FIELD_IDS = [
+    'time-fixed-dep','time-fixed-ret','time-range-start','time-range-end',
+    'time-stay-min','time-stay-max','time-sample',
+    'time-open-months','time-open-stay-min','time-open-stay-max',
+    'origin-open-center','origin-open-radius',
+    'dest-open-center','dest-open-radius',
+    'dest-explore-query','dest-explore-limit',
+    'price-max','price-discount','price-sort','price-stops',
+  ];
+
+  function saveFormState(){
+    try {
+      const fields = {};
+      SAVED_FIELD_IDS.forEach(id => { const el = document.getElementById(id); if(el) fields[id] = el.value; });
+      const payload = {
+        tripType: state.tripType,
+        timeMode: state.time.mode, originMode: state.origin.mode, destMode: state.dest.mode,
+        originTags: state.origin.tags, destTags: state.dest.tags,
+        fields,
+      };
+      localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(payload));
+    } catch(e) { /* localStorage 不可用就算了,不影響其他功能 */ }
+  }
+
+  function clickMode(target, mode){
+    const btn = document.querySelector(`.segmented[data-target="${target}"] button[data-m="${mode}"]`);
+    if(btn) btn.click();
+  }
+
+  function restoreFormState(){
+    // 表單欄位還原跟「輸出區塊要不要顯示」是兩件獨立的事,其中一個沒資料
+    // 不該連帶讓另一個也還原不了(這是複製按鈕消失那個 bug 的真正成因)。
+    let saved = null;
+    try {
+      const raw = localStorage.getItem(FORM_STORAGE_KEY);
+      if(raw) saved = JSON.parse(raw);
+    } catch(e) { saved = null; }
+
+    if(saved){
+      if(saved.fields){
+        SAVED_FIELD_IDS.forEach(id => {
+          if(saved.fields[id] !== undefined){
+            const el = document.getElementById(id);
+            if(el) el.value = saved.fields[id];
+          }
+        });
+        if(saved.fields['price-discount'] !== undefined){
+          discountVal.textContent = saved.fields['price-discount'] + '%';
+        }
+      }
+      if(saved.tripType){
+        const radio = document.querySelector(`input[name="triptype"][value="${saved.tripType}"]`);
+        if(radio){ radio.checked = true; state.tripType = saved.tripType; }
+        document.querySelectorAll('.rt-only').forEach(el=>{ el.style.display = state.tripType === 'roundtrip' ? '' : 'none'; });
+      }
+      if(Array.isArray(saved.originTags)){ state.origin.tags = saved.originTags; tagRenderers.origin(); }
+      if(Array.isArray(saved.destTags)){ state.dest.tags = saved.destTags; tagRenderers.dest(); }
+      if(saved.timeMode) clickMode('time', saved.timeMode);
+      if(saved.originMode) clickMode('origin', saved.originMode);
+      if(saved.destMode) clickMode('dest', saved.destMode);
+    }
+
+    // 上次已經按過「查詢」、看到規格跟複製按鈕的話,重新整理/我更新頁面後也要馬上還原,
+    // 不能讓按鈕跟著整個輸出區塊一起縮回「還沒查詢」的初始狀態——就算表單欄位沒存到值也一樣要還原。
+    let outputWasShown = false;
+    try { outputWasShown = localStorage.getItem(OUTPUT_STORAGE_KEY) === '1'; } catch(e) {}
+    if(outputWasShown) generateSpec(false);
+  }
+
+  // 表單裡任何輸入變動,不管是打字、選選單、按分段按鈕、加減標籤,都存一次
+  document.querySelector('.wrap').addEventListener('input', saveFormState);
+  document.querySelector('.wrap').addEventListener('change', saveFormState);
+  document.querySelectorAll('.segmented button').forEach(b => b.addEventListener('click', saveFormState));
+
+  function daysBetween(a,b){
+    const d1 = new Date(a), d2 = new Date(b);
+    if(isNaN(d1) || isNaN(d2)) return null;
+    return Math.max(1, Math.round((d2-d1)/86400000)+1);
+  }
+
+  function timeCount(){
+    if(state.time.mode === 'fixed') return 1;
+    if(state.time.mode === 'range'){
+      const start = document.getElementById('time-range-start').value;
+      const end = document.getElementById('time-range-end').value;
+      const sample = parseInt(document.getElementById('time-sample').value,10) || 1;
+      const span = daysBetween(start, end);
+      if(!span) return null;
+      return Math.max(1, Math.ceil(span / sample));
+    }
+    if(state.time.mode === 'open'){
+      const months = parseInt(document.getElementById('time-open-months').value,10) || 6;
+      return Math.max(1, Math.ceil((months * 30) / 7));
+    }
+    return 1;
+  }
+
+  function spatialCount(key){
+    const s = state[key];
+    if(s.mode === 'range') return Math.max(1, s.tags.length);
+    if(s.mode === 'open') return 6;      // 以機場為中心、半徑內——估計附近機場數
+    if(s.mode === 'explore'){
+      const limit = parseInt(document.getElementById('dest-explore-limit').value, 10);
+      return Math.max(1, limit || 15);   // 自由輸入範圍——用你自己設的上限,不是用猜的
+    }
+    return 1;
+  }
+
+  const isOpenish = m => m === 'open' || m === 'explore';
+
+  function recompute(){
+    const t = timeCount();
+    const o = spatialCount('origin');
+    const d = spatialCount('dest');
+
+    const countEl = document.getElementById('stat-count');
+    const dot = document.getElementById('feas-dot');
+    const text = document.getElementById('feas-text');
+
+    if(t === null){
+      countEl.textContent = '—';
+      dot.className = 'dot warn';
+      text.textContent = '請完整填寫日期範圍';
+      return;
+    }
+
+    const total = t * o * d;
+    countEl.textContent = total.toLocaleString();
+
+    let openCount = [isOpenish(state.time.mode), isOpenish(state.origin.mode), isOpenish(state.dest.mode)].filter(Boolean).length;
+
+    if(openCount >= 2){
+      dot.className = 'dot bad';
+      text.textContent = '兩個以上屬性都設成開放,組合數會失控,建議至少固定一個';
+    } else if(total <= 120){
+      dot.className = 'dot good';
+      text.textContent = `約 ${total} 次查詢,在 5,000 次免費額度內,沒問題`;
+    } else if(total <= 1000){
+      dot.className = 'dot warn';
+      text.textContent = `約 ${total} 次查詢,會用掉不少免費額度,建議降低取樣頻率或收斂範圍`;
+    } else {
+      dot.className = 'dot bad';
+      text.textContent = `約 ${total} 次查詢,單月免費額度可能不夠,建議分批執行或縮小範圍`;
+    }
+  }
+
+  ['time-range-start','time-range-end','time-sample','time-open-months','dest-explore-limit']
+    .forEach(id => document.getElementById(id).addEventListener('input', recompute));
+
+  function buildSpec(){
+    const spec = {
+      trip_type: state.tripType,
+      time: { mode: state.time.mode },
+      origin: { mode: state.origin.mode },
+      destination: { mode: state.dest.mode },
+      price: {
+        max_price: document.getElementById('price-max').value || null,
+        min_discount_pct: parseInt(discountSlider.value,10),
+        sort_by: document.getElementById('price-sort').value,
+        stops: document.getElementById('price-stops').value,
+      },
+      estimated_queries: parseInt(document.getElementById('stat-count').textContent.replace(/,/g,''),10) || null,
+    };
+
+    if(state.time.mode === 'fixed'){
+      spec.time.depart = document.getElementById('time-fixed-dep').value || null;
+      spec.time.return = state.tripType === 'roundtrip' ? (document.getElementById('time-fixed-ret').value || null) : null;
+    } else if(state.time.mode === 'range'){
+      spec.time.earliest_depart = document.getElementById('time-range-start').value || null;
+      spec.time.latest_depart = document.getElementById('time-range-end').value || null;
+      spec.time.sample_every_days = parseInt(document.getElementById('time-sample').value,10);
+      if(state.tripType === 'roundtrip'){
+        spec.time.stay_days_min = parseInt(document.getElementById('time-stay-min').value,10);
+        spec.time.stay_days_max = parseInt(document.getElementById('time-stay-max').value,10);
+      }
+    } else {
+      spec.time.window_months = parseInt(document.getElementById('time-open-months').value,10);
+      if(state.tripType === 'roundtrip'){
+        spec.time.stay_days_min = parseInt(document.getElementById('time-open-stay-min').value,10);
+        spec.time.stay_days_max = parseInt(document.getElementById('time-open-stay-max').value,10);
+      }
+    }
+
+    if(state.origin.mode === 'range'){
+      spec.origin.airports = state.origin.tags;
+    } else {
+      spec.origin.center = document.getElementById('origin-open-center').value.toUpperCase() || null;
+      spec.origin.scope = document.getElementById('origin-open-radius').value;
+    }
+
+    if(state.dest.mode === 'range'){
+      spec.destination.airports = state.dest.tags;
+    } else if(state.dest.mode === 'open'){
+      spec.destination.center = document.getElementById('dest-open-center').value.toUpperCase() || null;
+      spec.destination.scope = document.getElementById('dest-open-radius').value;
+    } else {
+      spec.destination.query = document.getElementById('dest-explore-query').value || null;
+      spec.destination.max_destinations = parseInt(document.getElementById('dest-explore-limit').value, 10) || 15;
+    }
+
+    return spec;
+  }
+
+  function plainSummary(spec){
+    const parts = [];
+    parts.push(`行程:${spec.trip_type === 'roundtrip' ? '來回' : '單程'}。`);
+
+    if(spec.origin.mode === 'range') parts.push(`起站:${spec.origin.airports.join('、') || '不限'}。`);
+    else parts.push(`起站開放,以 ${spec.origin.center || '(未填)'} 為中心、範圍是「${document.getElementById('origin-open-radius').selectedOptions[0].textContent}」。`);
+
+    if(spec.destination.mode === 'range') parts.push(`終點站:${spec.destination.airports.join('、') || '不限'}。`);
+    else if(spec.destination.mode === 'open') parts.push(`終點站開放,以 ${spec.destination.center || '(未填)'} 為中心、範圍是「${document.getElementById('dest-open-radius').selectedOptions[0].textContent}」。`);
+    else parts.push(`終點站開放探索:「${spec.destination.query || '(未填,讓引擎自己找)'}」,最多比較 ${spec.destination.max_destinations} 個目的地。`);
+
+    if(spec.time.mode === 'fixed') parts.push(`時間固定在 ${spec.time.depart || '(未填)'}${spec.time.return ? ' 回程 ' + spec.time.return : ''}。`);
+    else if(spec.time.mode === 'range') parts.push(`時間範圍 ${spec.time.earliest_depart || '?'} ~ ${spec.time.latest_depart || '?'},每 ${spec.time.sample_every_days} 天取樣一次${spec.time.stay_days_min ? `,停留 ${spec.time.stay_days_min}-${spec.time.stay_days_max} 天` : ''}。`);
+    else parts.push(`時間開放,探索未來 ${spec.time.window_months} 個月${spec.time.stay_days_min ? `,停留 ${spec.time.stay_days_min}-${spec.time.stay_days_max} 天` : ''}。`);
+
+    const stopsLabel = {any:'直飛或轉機都要', nonstop:'只要直飛', connecting:'只要轉機'}[spec.price.stops];
+    parts.push(`只看比歷史典型價便宜 ${spec.price.min_discount_pct}% 以上的選項${spec.price.max_price ? `,且不超過 NT$${spec.price.max_price}` : '(預算不限)'},${stopsLabel},依「${spec.price.sort_by === 'discount' ? '優惠幅度' : '絕對價格'}」排序。`);
+    parts.push(`預估查詢量:約 ${spec.estimated_queries ?? '?'} 次。`);
+
+    return parts.join(' ');
+  }
+
+  function generateSpec(scrollTo){
+    const spec = buildSpec();
+    document.getElementById('plain-summary').textContent = plainSummary(spec);
+    document.getElementById('json-out').textContent = JSON.stringify(spec, null, 2);
+    document.getElementById('output').classList.add('active');
+    try { localStorage.setItem(OUTPUT_STORAGE_KEY, '1'); } catch(e) {}
+    if(scrollTo){
+      try { document.getElementById('output').scrollIntoView({behavior:'smooth', block:'start'}); } catch(e) {}
+    }
+  }
+  document.getElementById('btn-generate').addEventListener('click', ()=> generateSpec(true));
+
+  // ---- 複製:優先用 Clipboard API,失敗就退回舊式 execCommand,兩個都失敗才提示手動選取 ----
+  document.getElementById('btn-copy').addEventListener('click', ()=>{
+    const text = document.getElementById('json-out').textContent;
+    const btn = document.getElementById('btn-copy');
+    const showCopied = ()=>{
+      btn.textContent = '✅ 已複製,去貼給 Claude 吧';
+      btn.classList.add('copied');
+      setTimeout(()=>{ btn.textContent = '📋 一鍵複製,貼給 Claude'; btn.classList.remove('copied'); }, 2200);
+    };
+    const showFailed = ()=>{
+      btn.textContent = '⚠️ 自動複製失敗,已展開手動複製區';
+      document.querySelector('.json-fold').open = true;
+      setTimeout(()=>{ btn.textContent = '📋 一鍵複製,貼給 Claude'; }, 2600);
+    };
+    const fallbackCopy = ()=>{
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok ? showCopied() : showFailed();
+      } catch(e) { showFailed(); }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(showCopied).catch(fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
+  });
+
+  // ---- 結果渲染:固定的準則,以後只要換 RESULTS_DATA 這包資料、不用重畫版面 ----
+  const CITY_NAMES = { PVG:'上海', SHA:'上海', CAN:'廣州', PEK:'北京', PKX:'北京', SVO:'莫斯科', DME:'莫斯科', LED:'聖彼得堡', NRT:'東京', TPE:'台北', TSA:'台北' };
+  const cityName = code => CITY_NAMES[code] || code;
+  const fmtDate = d => { const p = d.split('-'); return `${p[1]}/${p[2]}`; };
+  const weekday = d => { try { return new Date(d + 'T00:00:00').toLocaleDateString('zh-TW', {weekday:'short'}); } catch(e){ return ''; } };
+  const USD_TO_TWD = 31.9; // 2026-08 查詢時的約略匯率,只用來換算舊資料;新查詢一律直接跟 Google 拿台幣報價,不用換算
+  const fmtPrice = (price, currency) => {
+    const twd = currency === 'USD' ? Math.round(price * USD_TO_TWD) : price;
+    return 'NT$' + twd.toLocaleString();
+  };
+
+  function resultBlockHtml(data){
+    // 有優惠%資料的排前面(由高到低),有價格但沒優惠%資料的接著(由便宜到貴),完全查不到的放最後。
+    const hasDiscount = r => typeof r.discount_pct === 'number';
+    const hasPrice = r => typeof r.price === 'number';
+    const rows = [...data.rows].sort((a,b)=>{
+      if(hasDiscount(a) !== hasDiscount(b)) return hasDiscount(a) ? -1 : 1;
+      if(hasDiscount(a)) return b.discount_pct - a.discount_pct;
+      if(hasPrice(a) !== hasPrice(b)) return hasPrice(a) ? -1 : 1;
+      if(hasPrice(a)) return a.price - b.price;
+      return 0;
+    });
+    const withDiscount = rows.filter(hasDiscount);
+    const hits = withDiscount.filter(r => r.discount_pct >= data.threshold_pct);
+
+    let takeawayHtml;
+    if(!withDiscount.length){
+      takeawayHtml = `<div class="takeaway"><span>⚠️</span><div>這條航線資料量太少,Google 沒有足夠的歷史資料算出優惠%——以下老實列出目前查到的絕對價格,依便宜到貴排序,查不到的也列出來不隱藏。</div></div>`;
+    } else {
+      const best = withDiscount[0];
+      takeawayHtml = hits.length
+        ? `<div class="takeaway good"><span>✅</span><div>找到 <b>${hits.length}</b> 組符合門檻(≥${data.threshold_pct}%)的優惠,最佳是 <b>${cityName(best.origin_code)} ${fmtDate(best.date)}</b>,${fmtPrice(best.price, data.currency)},比歷史均價便宜 <b>${best.discount_pct.toFixed(1)}%</b>。</div></div>`
+        : `<div class="takeaway"><span>⚠️</span><div>這次查詢<b>沒有任何一組</b>達到 ${data.threshold_pct}% 優惠門檻。最接近的是 <b>${cityName(best.origin_code)} ${fmtDate(best.date)}</b>,${fmtPrice(best.price, data.currency)},比歷史均價${best.discount_pct >= 0 ? '便宜' : '貴'} <b>${Math.abs(best.discount_pct).toFixed(1)}%</b>。</div></div>`;
+    }
+
+    const rowsHtml = rows.map((r, i) => {
+      let pillClass, pillText;
+      if(hasDiscount(r)){
+        pillClass = r.discount_pct >= data.threshold_pct ? 'good' : (r.discount_pct < 0 ? 'bad' : 'neutral');
+        pillText = r.discount_pct >= 0 ? `省 ${r.discount_pct.toFixed(1)}%` : `貴 ${Math.abs(r.discount_pct).toFixed(1)}%`;
+      } else if(hasPrice(r)){
+        pillClass = 'neutral'; pillText = '資料不足,無法算優惠%';
+      } else {
+        pillClass = 'neutral'; pillText = '查無班機資料';
+      }
+      const buyLink = r.search_url
+        ? `<a href="${r.search_url}" target="_blank" rel="noopener">🔗 Google Flights</a>`
+        : `<span class="cell-meta">—</span>`;
+      return `
+        <tr class="${i === 0 && hasDiscount(r) ? 'best-row' : ''}">
+          <td class="cell-date">${fmtDate(r.date)}<span class="wd">${weekday(r.date)}</span></td>
+          <td class="cell-origin">${cityName(r.origin_code)}<span class="code">${r.origin_code}</span></td>
+          <td class="cell-price">${hasPrice(r) ? fmtPrice(r.price, data.currency) : '—'}</td>
+          <td><span class="pill ${pillClass}">${pillText}</span></td>
+          <td class="cell-meta">${r.airline || '—'}</td>
+          <td>${buyLink}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <div class="results-head">
+        <h2>${data.title}</h2>
+        <span class="meta">${data.subtitle}</span>
+      </div>
+      <p class="fetched-note">資料來源:Google Flights,透過 Bright Data 於 ${data.searched_at} 抓取 · 優惠門檻 ${data.threshold_pct}%${data.currency === 'USD' ? ` · 原始報價為美金,以 1 USD ≈ NT$${USD_TO_TWD} 換算顯示(非即時匯率)` : ''}</p>
+      ${takeawayHtml}
+      <div class="deal-table-wrap">
+        <table class="deal-table">
+          <thead><tr><th>日期</th><th>起站</th><th>最低價</th><th>相對歷史均價</th><th>航空公司</th><th>去哪買</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // ---- 歷史紀錄:最新一筆展開,其餘摺起來放最下面,個別可刪除、不會讓頁面越疊越長 ----
+  const DISMISSED_STORAGE_KEY = 'jojo_flight_console_dismissed_v1';
+  const getDismissed = () => { try { return JSON.parse(localStorage.getItem(DISMISSED_STORAGE_KEY) || '[]'); } catch(e){ return []; } };
+  const dismiss = id => {
+    const d = getDismissed();
+    if(!d.includes(id)) d.push(id);
+    try { localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify(d)); } catch(e) {}
+    renderHistory(RESULTS_HISTORY);
+  };
+
+  function renderHistory(history){
+    const root = document.getElementById('results-root');
+    const dismissed = getDismissed();
+    const visible = history.filter(h => !dismissed.includes(h.id));
+    if(!visible.length){ root.innerHTML = `<p class="hint">還沒有查詢結果——按上面「查詢」開始。</p>`; return; }
+
+    const [latest, ...older] = visible;
+    let html = resultBlockHtml(latest);
+
+    if(older.length){
+      const olderHtml = older.map(h => {
+        const bestRow = [...h.rows].sort((a,b)=> b.discount_pct - a.discount_pct)[0];
+        return `
+        <details class="history-item">
+          <summary>
+            <span>${h.title} · ${h.searched_at} · 最低 $${bestRow.price}</span>
+            <button type="button" class="btn-delete" data-dismiss="${h.id}">🗑 刪除</button>
+          </summary>
+          ${resultBlockHtml(h)}
+        </details>`;
+      }).join('');
+      html += `<details class="history-fold"><summary>過去查詢(${older.length} 筆)</summary>${olderHtml}</details>`;
+    }
+
+    root.innerHTML = html;
+    root.querySelectorAll('[data-dismiss]').forEach(btn=>{
+      btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); dismiss(btn.dataset.dismiss); });
+    });
+  }
+
+  const RESULTS_HISTORY = [
+    {
+      id: "cn-led-2026-08-27",
+      title: "上海 / 廣州 / 北京 → 聖彼得堡(LED)",
+      subtitle: "單程 · 經濟艙 · 含轉機 · 這條航線資料量少,價格有但無歷史優惠% —— 詳見下方說明",
+      searched_at: "2026-08-27",
+      threshold_pct: 15,
+      currency: "USD",
+      rows: [
+        {origin_code:"PVG", date:"2026-09-14", price:899, airline:"Turkish Airlines", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-15", price:471, airline:"Hainan", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-16", price:471, airline:"Hainan", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-17", price:899, airline:"Turkish Airlines", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-18", price:991, airline:"Emirates", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-14", price:1087, airline:"Turkish Airlines", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-15", price:453, airline:"Hainan", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-16", price:null, airline:null, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-17", price:null, airline:null, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-18", price:null, airline:null, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-14", price:462, airline:"Azerbaijan Airlines", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-15", price:989, airline:"Turkish Airlines", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-16", price:462, airline:"Azerbaijan Airlines", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-17", price:null, airline:null, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-18", price:null, airline:null, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
+      ]
+    },
+    {
+      id: "cn-ru-svo-2026-08-27",
+      title: "上海 / 廣州 / 北京 → 莫斯科(SVO)",
+      subtitle: "單程 · 經濟艙 · 含轉機",
+      searched_at: "2026-08-27",
+      threshold_pct: 8,
+      currency: "USD",
+      rows: [
+        {origin_code:"PVG", date:"2026-09-14", price:435, discount_pct:-32.8, airline:"China Southern", offers_count:5, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-15", price:419, discount_pct:-11.3, airline:"Hainan",         offers_count:4, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-16", price:313, discount_pct:0.7,   airline:"China Southern", offers_count:4, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-17", price:313, discount_pct:4.8,   airline:"China Southern", offers_count:3, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PVG", date:"2026-09-18", price:440, discount_pct:-18.9, airline:"China Southern", offers_count:5, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-14", price:415, discount_pct:-14.5, airline:"Hainan",         offers_count:7, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-15", price:354, discount_pct:-3.2,  airline:"Hainan",         offers_count:6, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-16", price:354, discount_pct:-9.3,  airline:"Hainan",         offers_count:6, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-17", price:354, discount_pct:-1.6,  airline:"Hainan",         offers_count:6, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"CAN", date:"2026-09-18", price:407, discount_pct:-1.7,  airline:"China Southern", offers_count:8, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDQ0FOcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-14", price:453, discount_pct:0.2,   airline:"Hainan",         offers_count:1, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-15", price:453, discount_pct:-2.6,  airline:"Hainan",         offers_count:2, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-16", price:453, discount_pct:-2.6,  airline:"Hainan",         offers_count:2, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-17", price:453, discount_pct:-2.6,  airline:"Hainan",         offers_count:1, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+        {origin_code:"PEK", date:"2026-09-18", price:524, discount_pct:-14.3, airline:"Hainan",         offers_count:2, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMThqBRIDUEVLcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
+      ]
+    },
+    {
+      id: "tpe-nrt-2026-08-26",
+      title: "台北 → 東京(成田)",
+      subtitle: "來回 · 經濟艙 · 直飛",
+      searched_at: "2026-08-26",
+      threshold_pct: 15,
+      currency: "USD",
+      rows: [
+        {origin_code:"TPE", date:"2026-10-09", price:289, discount_pct:3.0, airline:"Tigerair Taiwan", offers_count:25, search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMTAtMDlqBRIDVFBFcgUSA05SVBoaEgoyMDI2LTEwLTE2agUSA05SVHIFEgNUUEVCAQFIAZgBAQ%3D%3D&hl=en&curr=USD"},
+      ]
+    },
+  ];
+  renderHistory(RESULTS_HISTORY);
+
+  document.querySelectorAll('.rt-only').forEach(el=> el.style.display = '');
+  restoreFormState();
+  recompute();
+})();
+</script>
