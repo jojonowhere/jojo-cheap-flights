@@ -471,14 +471,14 @@
   table.deal-table tr.best-row{ background: var(--cat-price-bg); }
   .cell-date{ font-family: var(--font-mono); white-space:nowrap; }
   .cell-date .wd{ color: var(--ink-faint); font-size: 11.5px; margin-left:4px; }
-  .cell-origin{ font-weight:600; }
+  .cell-origin{ font-weight:600; white-space:nowrap; }
   .cell-origin .code{ color: var(--ink-faint); font-family: var(--font-mono); font-size: 11.5px; font-weight:400; margin-left:4px; }
   .cell-origin .time{ display:block; margin-top:2px; color: var(--ink-muted); font-family: var(--font-mono); font-size: 11.5px; font-weight:400; }
   .cell-price{ font-family: var(--font-mono); font-weight:700; font-size: 15px; font-variant-numeric: tabular-nums; }
   .cell-meta{ color: var(--ink-muted); font-size: 12.5px; }
   .cell-duration{ white-space:nowrap; font-family: var(--font-mono); }
-  th.col-duration, th.col-discount{ white-space:nowrap; }
-  th.col-discount{ width: 1%; }
+  th.col-duration, th.col-discount, th.col-buy{ white-space:nowrap; }
+  th.col-discount, th.col-buy{ width: 1%; }
   .pill{
     display:inline-flex; align-items:center; gap:4px;
     font-family: var(--font-mono); font-size: 12px; font-weight:600;
@@ -490,6 +490,16 @@
   .pill.neutral{ background: var(--surface-inset); color: var(--ink-muted); }
   table.deal-table a{ color: var(--cat-location); font-size: 12.5px; text-decoration: none; white-space:nowrap; }
   table.deal-table a:hover{ text-decoration: underline; }
+  .buy-link{
+    display:inline-flex; align-items:center; justify-content:center;
+    width: 30px; height: 30px;
+    font-size: 15px !important;
+    background: var(--cat-location-bg);
+    border-radius: 6px;
+    text-decoration: underline !important;
+    text-decoration-color: var(--cat-location) !important;
+  }
+  .buy-link:hover{ filter: brightness(0.95); }
 
   /* ---------- 過去查詢:摺疊、可個別刪除,避免頁面越疊越長 ---------- */
   details.history-fold{
@@ -1259,7 +1269,7 @@
         pillClass = 'neutral'; pillText = '查無班機資料';
       }
       const buyLink = r.search_url
-        ? `<a href="${r.search_url}" target="_blank" rel="noopener">🔗 Google Flights</a>`
+        ? `<a href="${r.search_url}" target="_blank" rel="noopener" class="buy-link" title="在 Google Flights 開啟這班">🔗</a>`
         : `<span class="cell-meta">—</span>`;
       const dCode = destCode(r);
       const depLine = r.dep_time ? `<span class="time">${r.dep_time} 起飛</span>` : '';
@@ -1288,7 +1298,7 @@
       ${chartHtml}
       <div class="deal-table-wrap">
         <table class="deal-table">
-          <thead><tr><th>日期</th><th>起站</th><th class="col-duration">飛行時間</th><th>終點站</th><th>最低價</th><th class="col-discount">相對歷史均價</th><th>航空公司</th><th>去哪買</th></tr></thead>
+          <thead><tr><th>日期</th><th>起站</th><th class="col-duration">飛行時間</th><th>終點站</th><th>最低價</th><th class="col-discount">相對歷史均價</th><th>航空公司</th><th class="col-buy">去哪買</th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
