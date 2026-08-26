@@ -491,10 +491,15 @@
   table.deal-table a{ color: var(--cat-location); font-size: 12.5px; text-decoration: none; white-space:nowrap; }
   table.deal-table a:hover{ text-decoration: underline; }
   .buy-link{
+    box-sizing: content-box;
     display:inline-flex; align-items:center; justify-content:center;
     width: 30px; height: 30px;
+    margin: -7px;
+    padding: 7px;
+    touch-action: manipulation;
     font-size: 15px !important;
     background: var(--cat-location-bg);
+    background-clip: content-box;
     border-radius: 6px;
     text-decoration: underline !important;
     text-decoration-color: var(--cat-location) !important;
