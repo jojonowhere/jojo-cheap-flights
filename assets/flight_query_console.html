@@ -1156,7 +1156,7 @@
   });
 
   // ---- 結果渲染:固定的準則,以後只要換 RESULTS_DATA 這包資料、不用重畫版面 ----
-  const CITY_NAMES = { PVG:'上海', SHA:'上海', CAN:'廣州', PEK:'北京', PKX:'北京', SVO:'莫斯科', DME:'莫斯科', LED:'聖彼得堡', NRT:'東京', TPE:'台北', TSA:'台北' };
+  const CITY_NAMES = { PVG:'上海', SHA:'上海', CAN:'廣州', PEK:'北京', PKX:'北京', SVO:'莫斯科', DME:'莫斯科', MOW:'莫斯科', LED:'聖彼得堡', NRT:'東京', TPE:'台北', TSA:'台北', CTU:'成都', SZX:'深圳', KMG:'昆明', XIY:'西安', CKG:'重慶', HGH:'杭州' };
   const cityName = code => CITY_NAMES[code] || code;
   const fmtDate = d => { const p = d.split('-'); return `${p[1]}/${p[2]}`; };
   const weekday = d => { try { return new Date(d + 'T00:00:00').toLocaleDateString('zh-TW', {weekday:'short'}); } catch(e){ return ''; } };
@@ -1200,6 +1200,9 @@
     // 有優惠%資料的排前面(由高到低),有價格但沒優惠%資料的接著(由便宜到貴),完全查不到的放最後。
     const hasDiscount = r => typeof r.discount_pct === 'number';
     const hasPrice = r => typeof r.price === 'number';
+    // 終點站可能整組查詢都固定(舊資料,存在 data.dest_default_code),也可能每一列不一樣
+    // (查多個終點站的時候)——每一列自己帶 dest_code 就優先用那個,沒有才退回整組的預設值。
+    const destCode = r => r.dest_code || data.dest_default_code;
     const rows = [...data.rows].sort((a,b)=>{
       if(hasDiscount(a) !== hasDiscount(b)) return hasDiscount(a) ? -1 : 1;
       if(hasDiscount(a)) return b.discount_pct - a.discount_pct;
@@ -1216,15 +1219,16 @@
       takeawayHtml = `<div class="takeaway"><span>⚠️</span><div>這條航線資料量太少,Google 沒有足夠的歷史資料算出優惠% —— 以下列出目前查到的絕對價格,依便宜到貴排序,查不到的也列出來。</div></div>`;
     } else {
       const prNote = typeof best.pr === 'number' ? `PR ${best.pr}——跟過去 61 天比,贏過 ${best.pr}% 的日子` : '';
+      const bestLabel = destCode(best) ? `${cityName(best.origin_code)} → ${cityName(destCode(best))} ${fmtDate(best.date)}` : `${cityName(best.origin_code)} ${fmtDate(best.date)}`;
       takeawayHtml = hits.length
-        ? `<div class="takeaway good"><span>✅</span><div>找到 <b>${hits.length}</b> 組符合門檻(≥${data.threshold_pct}%)的優惠,最佳是 <b>${cityName(best.origin_code)} ${fmtDate(best.date)}</b>,${fmtPrice(best.price, data.currency)},${prNote}。</div></div>`
-        : `<div class="takeaway"><span>⚠️</span><div>這次查詢<b>沒有任何一組</b>達到 ${data.threshold_pct}% 優惠門檻。最接近的是 <b>${cityName(best.origin_code)} ${fmtDate(best.date)}</b>,${fmtPrice(best.price, data.currency)},${prNote}。</div></div>`;
+        ? `<div class="takeaway good"><span>✅</span><div>找到 <b>${hits.length}</b> 組符合門檻(≥${data.threshold_pct}%)的優惠,最佳是 <b>${bestLabel}</b>,${fmtPrice(best.price, data.currency)},${prNote}。</div></div>`
+        : `<div class="takeaway"><span>⚠️</span><div>這次查詢<b>沒有任何一組</b>達到 ${data.threshold_pct}% 優惠門檻。最接近的是 <b>${bestLabel}</b>,${fmtPrice(best.price, data.currency)},${prNote}。</div></div>`;
     }
 
     const chartHtml = data.chart
       ? `<div class="chart-card">
           <h3>價格分佈曲線(常態近似)</h3>
-          <p class="chart-sub">${best ? cityName(best.origin_code)+' '+fmtDate(best.date) : ''} · 灰色帶是 95% 信賴區間,紅點是現在的報價</p>
+          <p class="chart-sub">${best ? (destCode(best) ? cityName(best.origin_code)+' → '+cityName(destCode(best)) : cityName(best.origin_code))+' '+fmtDate(best.date) : ''} · 灰色帶是 95% 信賴區間,紅點是現在的報價</p>
           ${bellCurveSvg(data.chart.mean, data.chart.sd, data.chart.current, data.currency)}
         </div>`
       : `<p class="hint">這條航線資料不足,沒有分佈圖可以畫。</p>`;
@@ -1243,10 +1247,12 @@
       const buyLink = r.search_url
         ? `<a href="${r.search_url}" target="_blank" rel="noopener">🔗 Google Flights</a>`
         : `<span class="cell-meta">—</span>`;
+      const dCode = destCode(r);
       return `
         <tr class="${i === 0 && hasDiscount(r) ? 'best-row' : ''}">
           <td class="cell-date">${fmtDate(r.date)}<span class="wd">${weekday(r.date)}</span></td>
           <td class="cell-origin">${cityName(r.origin_code)}<span class="code">${r.origin_code}</span></td>
+          <td class="cell-origin">${dCode ? cityName(dCode) : '—'}${dCode ? `<span class="code">${dCode}</span>` : ''}</td>
           <td class="cell-price">${hasPrice(r) ? fmtPrice(r.price, data.currency) : '—'}</td>
           <td><span class="pill ${pillClass}" title="${pillTitle}">${pillText}</span></td>
           <td class="cell-meta">${r.airline || '—'}</td>
@@ -1264,7 +1270,7 @@
       ${chartHtml}
       <div class="deal-table-wrap">
         <table class="deal-table">
-          <thead><tr><th>日期</th><th>起站</th><th>最低價</th><th>相對歷史均價</th><th>航空公司</th><th>去哪買</th></tr></thead>
+          <thead><tr><th>日期</th><th>起站</th><th>終點站</th><th>最低價</th><th>相對歷史均價</th><th>航空公司</th><th>去哪買</th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
@@ -1321,106 +1327,106 @@
       currency: "TWD",
       chart: { mean: 11152.68, sd: 462.85, current: 9603 },
       rows: [
-        {origin_code:"PEK",date:"2026-09-13",price:22572,discount_pct:-9.0,pr:11,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PEK",date:"2026-09-14",price:13652,discount_pct:4.8,pr:90,airline:"Azerbaijan Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PEK",date:"2026-09-15",price:14384,discount_pct:-1.5,pr:11,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PEK",date:"2026-09-16",price:13652,discount_pct:3.1,pr:90,airline:"Azerbaijan Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PEK",date:"2026-09-17",price:14384,discount_pct:-1.5,pr:11,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PEK",date:"2026-09-13",price:17233,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PEK",date:"2026-09-14",price:14670,airline:"Azerbaijan Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PEK",date:"2026-09-15",price:31461,airline:"Turkish Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PEK",date:"2026-09-16",price:14670,airline:"Azerbaijan Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PEK",date:"2026-09-17"},
-        {origin_code:"PVG",date:"2026-09-13",price:14673,discount_pct:-36.2,pr:3,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PVG",date:"2026-09-14",price:13726,discount_pct:-30.8,pr:2,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PVG",date:"2026-09-15",price:13300,discount_pct:-26.8,pr:16,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PVG",date:"2026-09-16",price:10205,discount_pct:-1.1,pr:52,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PVG",date:"2026-09-17",price:9954,discount_pct:5.5,pr:69,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PVG",date:"2026-09-13",price:29213,discount_pct:-17.4,pr:9,airline:"Air Serbia",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PVG",date:"2026-09-14",price:28574,airline:"Turkish Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PVG",date:"2026-09-15",price:14961,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PVG",date:"2026-09-16",price:14961,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PVG",date:"2026-09-17",price:28574,airline:"Turkish Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CAN",date:"2026-09-13",price:13201,discount_pct:-14.0,pr:21,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CAN",date:"2026-09-14",price:13201,discount_pct:-13.3,pr:8,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CAN",date:"2026-09-15",price:11260,discount_pct:-2.1,pr:42,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CAN",date:"2026-09-16",price:9603,discount_pct:7.3,pr:94,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CAN",date:"2026-09-17",price:9603,discount_pct:13.9,pr:100,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CAN",date:"2026-09-13",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CAN",date:"2026-09-14",price:34585,airline:"Turkish Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CAN",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CAN",date:"2026-09-16"},
-        {origin_code:"CAN",date:"2026-09-17"},
-        {origin_code:"CTU",date:"2026-09-13",price:13201,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ1RVcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CTU",date:"2026-09-14",price:13201,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ1RVcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CTU",date:"2026-09-15",price:11260,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ1RVcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CTU",date:"2026-09-16",price:9603,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ1RVcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CTU",date:"2026-09-17"},
-        {origin_code:"CTU",date:"2026-09-13"},
-        {origin_code:"CTU",date:"2026-09-14"},
-        {origin_code:"CTU",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ1RVcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CTU",date:"2026-09-16"},
-        {origin_code:"CTU",date:"2026-09-17"},
-        {origin_code:"SZX",date:"2026-09-13",price:13201,discount_pct:5.8,pr:80,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"SZX",date:"2026-09-14",price:13201,discount_pct:0.6,pr:64,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"SZX",date:"2026-09-15",price:11260,discount_pct:3.3,pr:54,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"SZX",date:"2026-09-16",price:9603,discount_pct:13.2,pr:100,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"SZX",date:"2026-09-17",price:9603,discount_pct:13.2,pr:100,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"SZX",date:"2026-09-13",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDU1pYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"SZX",date:"2026-09-14"},
-        {origin_code:"SZX",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDU1pYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"SZX",date:"2026-09-16",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDU1pYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"SZX",date:"2026-09-17"},
-        {origin_code:"KMG",date:"2026-09-13",price:13726,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDS01HcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"KMG",date:"2026-09-14",price:13726,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDS01HcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"KMG",date:"2026-09-15",price:13300,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDS01HcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"KMG",date:"2026-09-16",price:13726,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDS01HcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"KMG",date:"2026-09-17"},
-        {origin_code:"KMG",date:"2026-09-13"},
-        {origin_code:"KMG",date:"2026-09-14",price:22440,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDS01HcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"KMG",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDS01HcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"KMG",date:"2026-09-16"},
-        {origin_code:"KMG",date:"2026-09-17"},
-        {origin_code:"XIY",date:"2026-09-13",price:13201,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDWElZcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"XIY",date:"2026-09-14",price:10205,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDWElZcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"XIY",date:"2026-09-15",price:11260,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDWElZcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"XIY",date:"2026-09-16",price:9603,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDWElZcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"XIY",date:"2026-09-17"},
-        {origin_code:"XIY",date:"2026-09-13",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDWElZcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"XIY",date:"2026-09-14"},
-        {origin_code:"XIY",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDWElZcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"XIY",date:"2026-09-16",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDWElZcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"XIY",date:"2026-09-17"},
-        {origin_code:"CKG",date:"2026-09-13",price:14228,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ0tHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CKG",date:"2026-09-14",price:13740,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0tHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CKG",date:"2026-09-15",price:9954,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0tHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CKG",date:"2026-09-16",price:9954,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ0tHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CKG",date:"2026-09-17"},
-        {origin_code:"CKG",date:"2026-09-13",price:18748,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ0tHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CKG",date:"2026-09-14"},
-        {origin_code:"CKG",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0tHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"CKG",date:"2026-09-16"},
-        {origin_code:"CKG",date:"2026-09-17"},
-        {origin_code:"HGH",date:"2026-09-13",price:14228,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDSEdIcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"HGH",date:"2026-09-14",price:13835,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDSEdIcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"HGH",date:"2026-09-15",price:9954,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDSEdIcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"HGH",date:"2026-09-16",price:9954,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDSEdIcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"HGH",date:"2026-09-17"},
-        {origin_code:"HGH",date:"2026-09-13",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDSEdIcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"HGH",date:"2026-09-14"},
-        {origin_code:"HGH",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDSEdIcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"HGH",date:"2026-09-16",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDSEdIcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"HGH",date:"2026-09-17"},
-        {origin_code:"PKX",date:"2026-09-13",price:13281,discount_pct:-7.9,pr:13,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PKX",date:"2026-09-14",price:13030,discount_pct:-14.5,pr:18,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PKX",date:"2026-09-15",price:13030,discount_pct:-13.4,pr:16,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PKX",date:"2026-09-16",price:13030,discount_pct:-13.5,pr:20,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PKX",date:"2026-09-17",price:13030,discount_pct:-12.5,pr:30,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PKX",date:"2026-09-13",price:60892,airline:"Royal Air Maroc",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUEtYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PKX",date:"2026-09-14"},
-        {origin_code:"PKX",date:"2026-09-15",price:33248,airline:"Royal Air Maroc",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEtYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
-        {origin_code:"PKX",date:"2026-09-16"},
-        {origin_code:"PKX",date:"2026-09-17"}
+        {origin_code:"PEK",dest_code:"MOW",date:"2026-09-13",price:22572,discount_pct:-9.0,pr:11,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PEK",dest_code:"MOW",date:"2026-09-14",price:13652,discount_pct:4.8,pr:90,airline:"Azerbaijan Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PEK",dest_code:"MOW",date:"2026-09-15",price:14384,discount_pct:-1.5,pr:11,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PEK",dest_code:"MOW",date:"2026-09-16",price:13652,discount_pct:3.1,pr:90,airline:"Azerbaijan Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PEK",dest_code:"MOW",date:"2026-09-17",price:14384,discount_pct:-1.5,pr:11,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUEVLcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PEK",dest_code:"LED",date:"2026-09-13",price:17233,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PEK",dest_code:"LED",date:"2026-09-14",price:14670,airline:"Azerbaijan Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PEK",dest_code:"LED",date:"2026-09-15",price:31461,airline:"Turkish Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PEK",dest_code:"LED",date:"2026-09-16",price:14670,airline:"Azerbaijan Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEVLcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PEK",dest_code:"LED",date:"2026-09-17"},
+        {origin_code:"PVG",dest_code:"MOW",date:"2026-09-13",price:14673,discount_pct:-36.2,pr:3,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PVG",dest_code:"MOW",date:"2026-09-14",price:13726,discount_pct:-30.8,pr:2,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PVG",dest_code:"MOW",date:"2026-09-15",price:13300,discount_pct:-26.8,pr:16,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PVG",dest_code:"MOW",date:"2026-09-16",price:10205,discount_pct:-1.1,pr:52,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PVG",dest_code:"MOW",date:"2026-09-17",price:9954,discount_pct:5.5,pr:69,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUFZHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PVG",dest_code:"LED",date:"2026-09-13",price:29213,discount_pct:-17.4,pr:9,airline:"Air Serbia",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PVG",dest_code:"LED",date:"2026-09-14",price:28574,airline:"Turkish Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PVG",dest_code:"LED",date:"2026-09-15",price:14961,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PVG",dest_code:"LED",date:"2026-09-16",price:14961,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PVG",dest_code:"LED",date:"2026-09-17",price:28574,airline:"Turkish Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CAN",dest_code:"MOW",date:"2026-09-13",price:13201,discount_pct:-14.0,pr:21,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CAN",dest_code:"MOW",date:"2026-09-14",price:13201,discount_pct:-13.3,pr:8,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CAN",dest_code:"MOW",date:"2026-09-15",price:11260,discount_pct:-2.1,pr:42,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CAN",dest_code:"MOW",date:"2026-09-16",price:9603,discount_pct:7.3,pr:94,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CAN",dest_code:"MOW",date:"2026-09-17",price:9603,discount_pct:13.9,pr:100,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDQ0FOcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CAN",dest_code:"LED",date:"2026-09-13",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CAN",dest_code:"LED",date:"2026-09-14",price:34585,airline:"Turkish Airlines",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CAN",dest_code:"LED",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0FOcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CAN",dest_code:"LED",date:"2026-09-16"},
+        {origin_code:"CAN",dest_code:"LED",date:"2026-09-17"},
+        {origin_code:"CTU",dest_code:"MOW",date:"2026-09-13",price:13201,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ1RVcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CTU",dest_code:"MOW",date:"2026-09-14",price:13201,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ1RVcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CTU",dest_code:"MOW",date:"2026-09-15",price:11260,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ1RVcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CTU",dest_code:"MOW",date:"2026-09-16",price:9603,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ1RVcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CTU",dest_code:"MOW",date:"2026-09-17"},
+        {origin_code:"CTU",dest_code:"LED",date:"2026-09-13"},
+        {origin_code:"CTU",dest_code:"LED",date:"2026-09-14"},
+        {origin_code:"CTU",dest_code:"LED",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ1RVcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CTU",dest_code:"LED",date:"2026-09-16"},
+        {origin_code:"CTU",dest_code:"LED",date:"2026-09-17"},
+        {origin_code:"SZX",dest_code:"MOW",date:"2026-09-13",price:13201,discount_pct:5.8,pr:80,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"SZX",dest_code:"MOW",date:"2026-09-14",price:13201,discount_pct:0.6,pr:64,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"SZX",dest_code:"MOW",date:"2026-09-15",price:11260,discount_pct:3.3,pr:54,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"SZX",dest_code:"MOW",date:"2026-09-16",price:9603,discount_pct:13.2,pr:100,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"SZX",dest_code:"MOW",date:"2026-09-17",price:9603,discount_pct:13.2,pr:100,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDU1pYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"SZX",dest_code:"LED",date:"2026-09-13",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDU1pYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"SZX",dest_code:"LED",date:"2026-09-14"},
+        {origin_code:"SZX",dest_code:"LED",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDU1pYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"SZX",dest_code:"LED",date:"2026-09-16",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDU1pYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"SZX",dest_code:"LED",date:"2026-09-17"},
+        {origin_code:"KMG",dest_code:"MOW",date:"2026-09-13",price:13726,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDS01HcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"KMG",dest_code:"MOW",date:"2026-09-14",price:13726,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDS01HcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"KMG",dest_code:"MOW",date:"2026-09-15",price:13300,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDS01HcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"KMG",dest_code:"MOW",date:"2026-09-16",price:13726,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDS01HcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"KMG",dest_code:"MOW",date:"2026-09-17"},
+        {origin_code:"KMG",dest_code:"LED",date:"2026-09-13"},
+        {origin_code:"KMG",dest_code:"LED",date:"2026-09-14",price:22440,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDS01HcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"KMG",dest_code:"LED",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDS01HcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"KMG",dest_code:"LED",date:"2026-09-16"},
+        {origin_code:"KMG",dest_code:"LED",date:"2026-09-17"},
+        {origin_code:"XIY",dest_code:"MOW",date:"2026-09-13",price:13201,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDWElZcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"XIY",dest_code:"MOW",date:"2026-09-14",price:10205,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDWElZcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"XIY",dest_code:"MOW",date:"2026-09-15",price:11260,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDWElZcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"XIY",dest_code:"MOW",date:"2026-09-16",price:9603,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDWElZcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"XIY",dest_code:"MOW",date:"2026-09-17"},
+        {origin_code:"XIY",dest_code:"LED",date:"2026-09-13",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDWElZcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"XIY",dest_code:"LED",date:"2026-09-14"},
+        {origin_code:"XIY",dest_code:"LED",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDWElZcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"XIY",dest_code:"LED",date:"2026-09-16",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDWElZcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"XIY",dest_code:"LED",date:"2026-09-17"},
+        {origin_code:"CKG",dest_code:"MOW",date:"2026-09-13",price:14228,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ0tHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CKG",dest_code:"MOW",date:"2026-09-14",price:13740,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDQ0tHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CKG",dest_code:"MOW",date:"2026-09-15",price:9954,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0tHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CKG",dest_code:"MOW",date:"2026-09-16",price:9954,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDQ0tHcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CKG",dest_code:"MOW",date:"2026-09-17"},
+        {origin_code:"CKG",dest_code:"LED",date:"2026-09-13",price:18748,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDQ0tHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CKG",dest_code:"LED",date:"2026-09-14"},
+        {origin_code:"CKG",dest_code:"LED",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDQ0tHcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"CKG",dest_code:"LED",date:"2026-09-16"},
+        {origin_code:"CKG",dest_code:"LED",date:"2026-09-17"},
+        {origin_code:"HGH",dest_code:"MOW",date:"2026-09-13",price:14228,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDSEdIcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"HGH",dest_code:"MOW",date:"2026-09-14",price:13835,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDSEdIcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"HGH",dest_code:"MOW",date:"2026-09-15",price:9954,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDSEdIcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"HGH",dest_code:"MOW",date:"2026-09-16",price:9954,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDSEdIcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"HGH",dest_code:"MOW",date:"2026-09-17"},
+        {origin_code:"HGH",dest_code:"LED",date:"2026-09-13",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDSEdIcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"HGH",dest_code:"LED",date:"2026-09-14"},
+        {origin_code:"HGH",dest_code:"LED",date:"2026-09-15",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDSEdIcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"HGH",dest_code:"LED",date:"2026-09-16",price:14393,airline:"Hainan",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDSEdIcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"HGH",dest_code:"LED",date:"2026-09-17"},
+        {origin_code:"PKX",dest_code:"MOW",date:"2026-09-13",price:13281,discount_pct:-7.9,pr:13,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PKX",dest_code:"MOW",date:"2026-09-14",price:13030,discount_pct:-14.5,pr:18,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PKX",dest_code:"MOW",date:"2026-09-15",price:13030,discount_pct:-13.4,pr:16,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PKX",dest_code:"MOW",date:"2026-09-16",price:13030,discount_pct:-13.5,pr:20,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTZqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PKX",dest_code:"MOW",date:"2026-09-17",price:13030,discount_pct:-12.5,pr:30,airline:"China Southern",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTdqBRIDUEtYcgUSA01PV0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PKX",dest_code:"LED",date:"2026-09-13",price:60892,airline:"Royal Air Maroc",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTNqBRIDUEtYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PKX",dest_code:"LED",date:"2026-09-14"},
+        {origin_code:"PKX",dest_code:"LED",date:"2026-09-15",price:33248,airline:"Royal Air Maroc",search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUEtYcgUSA0xFREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"PKX",dest_code:"LED",date:"2026-09-16"},
+        {origin_code:"PKX",dest_code:"LED",date:"2026-09-17"}
       ]
     },
     {
@@ -1430,6 +1436,7 @@
       searched_at: "2026-08-27",
       threshold_pct: 15,
       currency: "USD",
+      dest_default_code: "LED",
       rows: [
         {origin_code:"PVG", date:"2026-09-14", price:899, airline:"Turkish Airlines", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
         {origin_code:"PVG", date:"2026-09-15", price:471, airline:"Hainan", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTVqBRIDUFZHcgUSA0xFREIBAUgBmAEC&hl=en&curr=USD"},
@@ -1455,6 +1462,7 @@
       searched_at: "2026-08-27",
       threshold_pct: 8,
       currency: "USD",
+      dest_default_code: "SVO",
       chart: {mean: 328.61, sd: 44.29, current: 313},
       rows: [
         {origin_code:"PVG", date:"2026-09-14", price:435, discount_pct:-32.8, pr:2,  airline:"China Southern", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMTRqBRIDUFZHcgUSA1NWT0IBAUgBmAEC&hl=en&curr=USD"},
@@ -1481,6 +1489,7 @@
       searched_at: "2026-08-26",
       threshold_pct: 15,
       currency: "USD",
+      dest_default_code: "NRT",
       chart: {mean: 297.94, sd: 23.09, current: 289},
       rows: [
         {origin_code:"TPE", date:"2026-10-09", price:289, discount_pct:3.0, pr:66, airline:"Tigerair Taiwan", search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMTAtMDlqBRIDVFBFcgUSA05SVBoaEgoyMDI2LTEwLTE2agUSA05SVHIFEgNUUEVCAQFIAZgBAQ%3D%3D&hl=en&curr=USD"},
