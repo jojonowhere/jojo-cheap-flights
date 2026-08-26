@@ -499,16 +499,23 @@
   }
   details.history-fold > summary{
     cursor:pointer;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    color: var(--ink-faint);
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-family: var(--font-body);
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--cat-location);
+    background: var(--cat-location-bg);
+    padding: 8px 16px;
+    border-radius: 999px;
     list-style:none;
+    transition: filter .12s ease;
   }
+  details.history-fold > summary:hover{ filter: brightness(0.95); text-decoration: underline; }
   details.history-fold > summary::-webkit-details-marker{ display:none; }
-  details.history-fold > summary::before{ content:"▸ "; }
-  details.history-fold[open] > summary::before{ content:"▾ "; }
+  details.history-fold > summary::before{ content:"▸ "; transition: transform .15s ease; }
+  details.history-fold[open] > summary::before{ content:"▸ "; transform: rotate(90deg); }
 
   details.history-item{
     margin-top: 12px;
@@ -1319,7 +1326,7 @@
           ${resultBlockHtml(h)}
         </details>`;
       }).join('');
-      html += `<details class="history-fold"><summary>過去查詢(${older.length} 筆)</summary>${olderHtml}</details>`;
+      html += `<details class="history-fold"><summary>📂 點開看過去查詢(${older.length} 筆)</summary>${olderHtml}</details>`;
     }
 
     root.innerHTML = html;
