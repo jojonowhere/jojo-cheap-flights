@@ -476,6 +476,9 @@
   .cell-origin .time{ display:block; margin-top:2px; color: var(--ink-muted); font-family: var(--font-mono); font-size: 11.5px; font-weight:400; }
   .cell-price{ font-family: var(--font-mono); font-weight:700; font-size: 15px; font-variant-numeric: tabular-nums; }
   .cell-meta{ color: var(--ink-muted); font-size: 12.5px; }
+  .cell-duration{ white-space:nowrap; font-family: var(--font-mono); }
+  th.col-duration, th.col-discount{ white-space:nowrap; }
+  th.col-discount{ width: 1%; }
   .pill{
     display:inline-flex; align-items:center; gap:4px;
     font-family: var(--font-mono); font-size: 12px; font-weight:600;
@@ -1244,7 +1247,7 @@
         pillText = typeof r.pr === 'number' ? `PR ${r.pr}` : (r.discount_pct >= 0 ? `省 ${r.discount_pct.toFixed(1)}%` : `貴 ${Math.abs(r.discount_pct).toFixed(1)}%`);
         pillTitle = `跟過去 61 天比,贏過 ${r.pr}% 的日子,比歷史均價${r.discount_pct >= 0 ? '便宜' : '貴'} ${Math.abs(r.discount_pct).toFixed(1)}%`;
       } else if(hasPrice(r)){
-        pillClass = 'neutral'; pillText = '資料不足,無法算優惠%';
+        pillClass = 'neutral'; pillText = '資料不足';
       } else {
         pillClass = 'neutral'; pillText = '查無班機資料';
       }
@@ -1253,11 +1256,13 @@
         : `<span class="cell-meta">—</span>`;
       const dCode = destCode(r);
       const depLine = r.dep_time ? `<span class="time">${r.dep_time} 起飛</span>` : '';
-      const arrLine = r.arr_time ? `<span class="time">${r.arr_time} 抵達${typeof r.duration_min === 'number' ? `・飛行 ${fmtDuration(r.duration_min)}` : ''}</span>` : '';
+      const arrLine = r.arr_time ? `<span class="time">${r.arr_time} 抵達</span>` : '';
+      const durCell = typeof r.duration_min === 'number' ? fmtDuration(r.duration_min) : '—';
       return `
         <tr class="${r === best ? 'best-row' : ''}">
           <td class="cell-date">${fmtDate(r.date)}<span class="wd">${weekday(r.date)}</span></td>
           <td class="cell-origin">${cityName(r.origin_code)}<span class="code">${r.origin_code}</span>${depLine}</td>
+          <td class="cell-meta cell-duration">${durCell}</td>
           <td class="cell-origin">${dCode ? cityName(dCode) : '—'}${dCode ? `<span class="code">${dCode}</span>` : ''}${arrLine}</td>
           <td class="cell-price">${hasPrice(r) ? fmtPrice(r.price, data.currency) : '—'}</td>
           <td><span class="pill ${pillClass}" title="${pillTitle}">${pillText}</span></td>
@@ -1276,7 +1281,7 @@
       ${chartHtml}
       <div class="deal-table-wrap">
         <table class="deal-table">
-          <thead><tr><th>日期</th><th>起站</th><th>終點站</th><th>最低價</th><th>相對歷史均價</th><th>航空公司</th><th>去哪買</th></tr></thead>
+          <thead><tr><th>日期</th><th>起站</th><th class="col-duration">飛行時間</th><th>終點站</th><th>最低價</th><th class="col-discount">相對歷史均價</th><th>航空公司</th><th>去哪買</th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
