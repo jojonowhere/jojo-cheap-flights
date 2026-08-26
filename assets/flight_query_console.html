@@ -1197,20 +1197,21 @@
   }
 
   function resultBlockHtml(data){
-    // 有優惠%資料的排前面(由高到低),有價格但沒優惠%資料的接著(由便宜到貴),完全查不到的放最後。
     const hasDiscount = r => typeof r.discount_pct === 'number';
     const hasPrice = r => typeof r.price === 'number';
     // 終點站可能整組查詢都固定(舊資料,存在 data.dest_default_code),也可能每一列不一樣
     // (查多個終點站的時候)——每一列自己帶 dest_code 就優先用那個,沒有才退回整組的預設值。
     const destCode = r => r.dest_code || data.dest_default_code;
+    // 表格一律由低價到高價排(混著「優惠%高的排前面」跟「便宜排前面」兩套邏輯會讓人看不懂表格
+    // 在依照什麼排序——使用者實際反映過這樣看起來很亂)。查不到價格的沒東西可比,固定放最後。
     const rows = [...data.rows].sort((a,b)=>{
-      if(hasDiscount(a) !== hasDiscount(b)) return hasDiscount(a) ? -1 : 1;
-      if(hasDiscount(a)) return b.discount_pct - a.discount_pct;
       if(hasPrice(a) !== hasPrice(b)) return hasPrice(a) ? -1 : 1;
       if(hasPrice(a)) return a.price - b.price;
       return 0;
     });
-    const withDiscount = rows.filter(hasDiscount);
+    // 「最佳優惠」提示跟鐘型圖用的是 PR/優惠%最高的那一筆,這個判斷跟表格顯示順序無關,
+    // 所以另外從原始資料算,不要跟著上面改成價格排序的 rows 走。
+    const withDiscount = data.rows.filter(hasDiscount).sort((a,b)=> b.discount_pct - a.discount_pct);
     const hits = withDiscount.filter(r => r.discount_pct >= data.threshold_pct);
     const best = withDiscount[0] || null;
 
@@ -1249,7 +1250,7 @@
         : `<span class="cell-meta">—</span>`;
       const dCode = destCode(r);
       return `
-        <tr class="${i === 0 && hasDiscount(r) ? 'best-row' : ''}">
+        <tr class="${r === best ? 'best-row' : ''}">
           <td class="cell-date">${fmtDate(r.date)}<span class="wd">${weekday(r.date)}</span></td>
           <td class="cell-origin">${cityName(r.origin_code)}<span class="code">${r.origin_code}</span></td>
           <td class="cell-origin">${dCode ? cityName(dCode) : '—'}${dCode ? `<span class="code">${dCode}</span>` : ''}</td>
