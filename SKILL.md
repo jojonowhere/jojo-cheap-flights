@@ -98,6 +98,23 @@ schedules) rather than a scraping bug, a quick web search to confirm is
 worth it — it changes what you tell the user and whether it's worth debugging
 further.
 
+**Google Flights structurally excludes Aeroflot (and likely other Russian
+carriers) — this is not a scraping gap.** Confirmed by re-querying CAN→SVO
+across 5 dates with both `gl=us` and `gl=tw` and finding zero mentions of
+Aeroflot/Rossiya anywhere in the raw `ds:1` blob — the data Google's own
+backend returns genuinely doesn't include these flights, it's not a parsing
+miss. A user found an Aeroflot CAN→SVO nonstop on Trip.com that never showed
+up on Google Flights for the same route/date. This matches independent
+reporting (ThriftyTraveler and others) that Aeroflot is one of a handful of
+airlines that don't list through Google Flights at all, consistent with the
+airline's 2022 exit from SkyTeam and Western booking systems under sanctions.
+**Practical implication: for any route touching Russia, this tool's results
+are Google-Flights-only and will never surface Aeroflot/Rossiya fares no
+matter how the query is tuned — mention this limitation up front rather than
+letting the user assume the tool searched "everywhere" and came up short.**
+If the user wants Russian-carrier options specifically, that requires a
+different data source (e.g. Trip.com) entirely, not a fix to this scraper.
+
 ## Artifact rules (`flight_query_console.html`)
 
 These exist because each one was a real bug the user caught and made you fix
