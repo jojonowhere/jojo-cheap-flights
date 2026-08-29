@@ -1182,7 +1182,7 @@
   });
 
   // ---- 結果渲染:固定的準則,以後只要換 RESULTS_DATA 這包資料、不用重畫版面 ----
-  const CITY_NAMES = { PVG:'上海', SHA:'上海', CAN:'廣州', PEK:'北京', PKX:'北京', SVO:'莫斯科', DME:'莫斯科', MOW:'莫斯科', LED:'聖彼得堡', NRT:'東京', TPE:'台北', TSA:'台北', CTU:'成都', SZX:'深圳', KMG:'昆明', XIY:'西安', CKG:'重慶', HGH:'杭州' };
+  const CITY_NAMES = { PVG:'上海', SHA:'上海', CAN:'廣州', PEK:'北京', PKX:'北京', SVO:'莫斯科', DME:'莫斯科', MOW:'莫斯科', LED:'聖彼得堡', NRT:'東京', TPE:'台北', TSA:'台北', CTU:'成都', SZX:'深圳', KMG:'昆明', XIY:'西安', CKG:'重慶', HGH:'杭州', HND:'東京', KIX:'大阪', FUK:'福岡', OKA:'沖繩', CTS:'札幌', NGO:'名古屋' };
   const cityName = code => CITY_NAMES[code] || code;
   const fmtDate = d => { const p = d.split('-'); return `${p[1]}/${p[2]}`; };
   const weekday = d => { try { return new Date(d + 'T00:00:00').toLocaleDateString('zh-TW', {weekday:'short'}); } catch(e){ return ''; } };
@@ -1351,6 +1351,45 @@
   }
 
   const RESULTS_HISTORY = [
+    {
+      id: "tpe-tsa-japan-2026-09-oneway-nonstop",
+      title: "台北(TPE/TSA) → 日本主要城市 · 9/23-9/26 單程直飛",
+      subtitle: "單程 · 經濟艙 · 只看直飛 · TPE→HND 這 4 天已重試 6 次仍查不到直飛報價,只查到轉機(港龍快運/韓亞/日航,約 NT$9,100-17,900,1-2 轉);這應該是 Google Flights 首頁只回傳少數『精選最便宜』航班、沒收錄較貴的長榮/華航/日航/全日空直飛選項,不代表這條航線真的沒有直飛,故未列入下表,建議直接到航空公司官網或 Google Flights 覆核",
+      searched_at: "2026-08-28",
+      threshold_pct: 15,
+      currency: "TWD",
+      chart: { mean: 7488, sd: 589.1, current: 7360 },
+      rows: [
+        {origin_code:"TPE",dest_code:"OKA",date:"2026-09-23",price:4865,discount_pct:-0.4,pr:52,airline:"Thai Lion Air",dep_time:"08:55",arr_time:"11:15",duration_min:80,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjNqBRIDVFBFcgUSA09LQUIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"OKA",date:"2026-09-26",price:5499,discount_pct:-12.8,pr:18,airline:"Tigerair Taiwan",dep_time:"18:30",arr_time:"20:50",duration_min:80,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjZqBRIDVFBFcgUSA09LQUIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"KIX",date:"2026-09-26",price:6663,discount_pct:-30.9,pr:2,airline:"Jetstar",dep_time:"18:20",arr_time:"22:00",duration_min:160,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjZqBRIDVFBFcgUSA0tJWEIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"FUK",date:"2026-09-23",price:6899,discount_pct:4.0,pr:84,airline:"Tigerair Taiwan",dep_time:"06:45",arr_time:"10:05",duration_min:140,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjNqBRIDVFBFcgUSA0ZVS0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"NGO",date:"2026-09-26",price:7360,discount_pct:4.6,pr:77,airline:"Peach Aviation",dep_time:"02:10",arr_time:"06:05",duration_min:175,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjZqBRIDVFBFcgUSA05HT0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"OKA",date:"2026-09-25",price:8065,discount_pct:-5.0,pr:44,airline:"Thai Lion Air",dep_time:"08:55",arr_time:"11:15",duration_min:80,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjVqBRIDVFBFcgUSA09LQUIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"FUK",date:"2026-09-26",price:8940,discount_pct:-10.0,pr:21,airline:"AirAsia",dep_time:"12:00",arr_time:"15:20",duration_min:140,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjZqBRIDVFBFcgUSA0ZVS0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"OKA",date:"2026-09-24",price:8970,discount_pct:-12.5,pr:10,airline:"Peach Aviation",dep_time:"14:50",arr_time:"17:35",duration_min:105,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjRqBRIDVFBFcgUSA09LQUIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"NRT",date:"2026-09-26",price:9099,discount_pct:-23.0,pr:2,airline:"Tigerair Taiwan",dep_time:"14:25",arr_time:"18:35",duration_min:190,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjZqBRIDVFBFcgUSA05SVEIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"NRT",date:"2026-09-24",price:9110,discount_pct:-5.6,pr:44,airline:"Thai Lion Air",dep_time:"12:10",arr_time:"16:30",duration_min:200,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjRqBRIDVFBFcgUSA05SVEIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"NRT",date:"2026-09-25",price:9110,discount_pct:-9.8,pr:25,airline:"Thai Lion Air",dep_time:"12:10",arr_time:"16:30",duration_min:200,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjVqBRIDVFBFcgUSA05SVEIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"CTS",date:"2026-09-26",price:9462,discount_pct:-11.9,pr:28,airline:"Scoot",dep_time:"13:00",arr_time:"17:55",duration_min:235,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjZqBRIDVFBFcgUSA0NUU0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"FUK",date:"2026-09-24",price:9699,discount_pct:-9.7,pr:21,airline:"Tigerair Taiwan",dep_time:"14:25",arr_time:"17:50",duration_min:145,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjRqBRIDVFBFcgUSA0ZVS0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"KIX",date:"2026-09-25",price:9893,discount_pct:-19.3,pr:8,airline:"Jetstar",dep_time:"18:20",arr_time:"22:00",duration_min:160,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjVqBRIDVFBFcgUSA0tJWEIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"KIX",date:"2026-09-23",price:10641,discount_pct:-19.7,pr:3,airline:"EVA Air",dep_time:"08:20",arr_time:"12:10",duration_min:170,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjNqBRIDVFBFcgUSA0tJWEIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"KIX",date:"2026-09-24",price:10899,discount_pct:-3.2,pr:54,airline:"Tigerair Taiwan",dep_time:"15:15",arr_time:"19:00",duration_min:165,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjRqBRIDVFBFcgUSA0tJWEIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"CTS",date:"2026-09-23",price:10899,discount_pct:-7.9,pr:59,airline:"Tigerair Taiwan",dep_time:"06:20",arr_time:"11:05",duration_min:225,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjNqBRIDVFBFcgUSA0NUU0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"NGO",date:"2026-09-23",price:11999,discount_pct:-12.5,pr:2,airline:"Tigerair Taiwan",dep_time:"09:00",arr_time:"12:55",duration_min:175,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjNqBRIDVFBFcgUSA05HT0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"NGO",date:"2026-09-24",price:11999,discount_pct:-0.8,pr:44,airline:"Tigerair Taiwan",dep_time:"17:20",arr_time:"21:15",duration_min:175,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjRqBRIDVFBFcgUSA05HT0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"FUK",date:"2026-09-25",price:12699,discount_pct:-7.1,pr:11,airline:"Tigerair Taiwan",dep_time:"14:30",arr_time:"17:55",duration_min:145,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjVqBRIDVFBFcgUSA0ZVS0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TSA",dest_code:"HND",date:"2026-09-26",price:13150,discount_pct:-19.4,pr:29,airline:"JAL",dep_time:"09:40",arr_time:"13:50",duration_min:190,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjZqBRIDVFNBcgUSA0hOREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"NRT",date:"2026-09-23",price:13490,discount_pct:-35.3,pr:3,airline:"Scoot",dep_time:"06:45",arr_time:"11:15",duration_min:210,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjNqBRIDVFBFcgUSA05SVEIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"CTS",date:"2026-09-24",price:13695,discount_pct:0.8,pr:34,airline:"Scoot",dep_time:"13:00",arr_time:"17:55",duration_min:235,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjRqBRIDVFBFcgUSA0NUU0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"NGO",date:"2026-09-25",price:15090,discount_pct:-25.8,pr:2,airline:"Peach Aviation",dep_time:"02:10",arr_time:"06:05",duration_min:175,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjVqBRIDVFBFcgUSA05HT0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TPE",dest_code:"CTS",date:"2026-09-25",price:16899,discount_pct:-12.2,pr:11,airline:"Tigerair Taiwan",dep_time:"06:20",arr_time:"11:05",duration_min:225,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjVqBRIDVFBFcgUSA0NUU0IBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TSA",dest_code:"HND",date:"2026-09-23",price:22050,discount_pct:-21.7,pr:13,airline:"JAL",dep_time:"14:20",arr_time:"18:30",duration_min:190,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjNqBRIDVFNBcgUSA0hOREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TSA",dest_code:"HND",date:"2026-09-24",price:22050,discount_pct:-29.4,pr:2,airline:"JAL",dep_time:"14:20",arr_time:"18:30",duration_min:190,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjRqBRIDVFNBcgUSA0hOREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+        {origin_code:"TSA",dest_code:"HND",date:"2026-09-25",price:22050,discount_pct:-34.2,pr:2,airline:"JAL",dep_time:"14:20",arr_time:"18:30",duration_min:190,search_url:"https://www.google.com/travel/flights/search?tfs=GhoSCjIwMjYtMDktMjVqBRIDVFNBcgUSA0hOREIBAUgBmAEC&hl=en&curr=TWD&gl=us"},
+      ],
+    },
     {
       id: "cn10-mow-led-2026-09-v2",
       title: "中國十大機場 → 莫斯科(MOW)/聖彼得堡(LED) · 9/13-9/15",
